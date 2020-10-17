@@ -1,25 +1,54 @@
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-public class Server extends Thread {
+public class Server implements Runnable {
     private final int port;
+    private Thread worker;
     private ServerSocket serverSocket;
     private ConnectionHandler connection;
+    private final CountDownLatch startSignal;
+    private final AtomicBoolean running = new AtomicBoolean(false);
 
     public Server(int port) {
         this.port = port;
+        this.startSignal = new CountDownLatch(1);
     }
 
-    @Override
+    public CountDownLatch getStartSignal() {
+        return this.startSignal;
+    }
+
+    public void start() {
+        worker = new Thread(this);
+        worker.start();
+    }
+
+
+    public boolean isRunning() {
+        return this.running.get();
+    }
+
+    public void stop() {
+        running.set(false);
+        worker.interrupt();
+    }
+
     public void run() {
         try {
+            this.running.set(true);
+
             // listen for client connection requests on this server socket
             this.serverSocket = new ServerSocket(port);
 
             System.out.printf("File server listening on %s...%n", port);
-            while (true) {
+            this.startSignal.countDown();
+
+            while (this.running.get()) {
                 Socket socket = this.serverSocket.accept();
 
                 System.out.printf("Got new request from %s%n", socket.getInetAddress());
@@ -43,8 +72,16 @@ public class Server extends Thread {
                     socket.close();
                 }
             }
-        } catch (IOException ioe) {
-            ioe.printStackTrace();
+
+        } catch (InterruptedIOException e) {
+            Thread.currentThread().interrupt();
+            System.out.println("Server Thread was interrupted, Failed to complete operation.");
+
+            // kill the socket server
+            this.cleanup();
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -54,11 +91,13 @@ public class Server extends Thread {
         this.connection.start();
     }
 
+
     public void cleanup() {
         try {
+            System.out.println("File server shutting down...");
             serverSocket.close();
         } catch (IOException e) {
-            System.out.println("File server couldn't shutdown gracefully...");
+            System.out.println("File server couldn't shutdown gracefully.");
             e.printStackTrace();
         }
     }

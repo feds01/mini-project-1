@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Scanner;
 
 public class Commander {
+    public Server server;
+
     private static final Commander instance = new Commander();
 
     private Commander() {
@@ -11,6 +13,10 @@ public class Commander {
 
     public static Commander getInstance() {
         return instance;
+    }
+
+    public void setServer(Server server) {
+        this.server = server;
     }
 
     public boolean pushCommand(String command, String... args) {
