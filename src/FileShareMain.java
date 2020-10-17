@@ -30,8 +30,9 @@ public class FileShareMain {
             commander.setServer(server);
             System.out.print("> ");
 
-            while (scanner.hasNext()) {
-                var command = scanner.next().split(" ");
+            while (scanner.hasNextLine()) {
+                var command = scanner.nextLine().strip().split(" ");
+                // TODO: don't strip and then validate
 
                 // TODO: move this into Commander class.
                 switch (command[0]) {
