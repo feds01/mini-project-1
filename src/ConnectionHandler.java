@@ -27,7 +27,7 @@ public class ConnectionHandler extends Thread {
         System.out.println("new ConnectionHandler thread started .... ");
         try {
             printClientData();
-        } catch  (Exception e){ // exit cleanly for any Exception (including IOException, ClientDisconnectedException)
+        } catch (Exception e) { // exit cleanly for any Exception (including IOException, ClientDisconnectedException)
             System.out.println("ConnectionHandler:run " + e.getMessage());
             cleanup();     // cleanup and exit
         }
@@ -35,7 +35,9 @@ public class ConnectionHandler extends Thread {
 
     private void printClientData() throws DisconnectedException, IOException {
         while (true) {
-            String line = reader.readLine(); // get data from client over socket
+            var line = reader.readLine();
+
+
             // if readLine fails we can deduce here that the connection to the client is broken
             // and shut down the connection on this side cleanly by throwing a DisconnectedException
             // which will be passed up the call stack to the nearest handler (catch block)

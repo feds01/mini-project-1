@@ -1,25 +1,31 @@
 public class FileShareMain {
     public static void main(String[] args) {
-        var config = ConfigurationManager.getInstance();
+        var config = Configuration.getInstance();
 
-        // print out application settings.
-        System.out.println(config.get("directory.download"));
-        System.out.println(config.get("directory.upload"));
-
-
-
-        if (args.length < 1) {
-            System.out.println("Usage: FileShareMain <server|client> <hostname>");
+        if (args.length == 0) {
+            System.out.println("Usage: java FileShareMain <port>");
             System.exit(1);
         }
 
-        switch (args[0]) {
-            case "client":
-                Client c = new Client(args[1], Configuration.defaultPort);
-                break;
-            case "server":
-                Server s = new Server(Configuration.defaultPort);
-                break;
+        // print out application settings.
+        System.out.println("Running with download directory: " + config.get("directory.download"));
+        System.out.println("Running with upload directory: " + config.get("directory.upload"));
+
+        // boot the server that listens for incoming connections...
+        try {
+            var server = new Server(Integer.parseInt(args[0]));
+
+            server.start();
+
+            // boot up the commander or gui version...
+
+            // finally when client sends kill command, close the server and any other
+            // resources that need closing...
+            server.join();
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
     }
 }
