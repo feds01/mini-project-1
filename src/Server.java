@@ -1,6 +1,5 @@
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.CountDownLatch;
@@ -34,11 +33,15 @@ public class Server implements Runnable {
     }
 
     public void stop() {
+        this.cleanup();
+
         running.set(false);
         worker.interrupt();
     }
 
     public void run() {
+        Thread.currentThread().setName("Server");
+
         try {
             this.running.set(true);
 
@@ -73,13 +76,6 @@ public class Server implements Runnable {
                 }
             }
 
-        } catch (InterruptedIOException e) {
-            Thread.currentThread().interrupt();
-            System.out.println("Server Thread was interrupted, Failed to complete operation.");
-
-            // kill the socket server
-            this.cleanup();
-
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -94,8 +90,14 @@ public class Server implements Runnable {
 
     public void cleanup() {
         try {
+            // close the connection if one exists...
+            if (connection != null && connection.isAlive()) {
+                connection.shutdown();
+            }
+
             System.out.println("File server shutting down...");
             serverSocket.close();
+
         } catch (IOException e) {
             System.out.println("File server couldn't shutdown gracefully.");
             e.printStackTrace();

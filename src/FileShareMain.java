@@ -31,8 +31,16 @@ public class FileShareMain {
             System.out.print("> ");
 
             while (scanner.hasNextLine()) {
-                var command = scanner.nextLine().strip().split(" ");
-                // TODO: don't strip and then validate
+                var commandString = scanner.nextLine();
+
+                // check if the given command is empty or just whitespaces, if so skip
+                // attempting to decipher the given command.
+                if (commandString.isBlank() || commandString.isEmpty()) {
+                    System.out.print("Command not recognised.\n> ");
+                    continue;
+                }
+
+                var command = commandString.split(" ");
 
                 // TODO: move this into Commander class.
                 switch (command[0]) {
@@ -78,6 +86,5 @@ public class FileShareMain {
         } catch (Exception e) {
             e.printStackTrace();
         }
-
     }
 }

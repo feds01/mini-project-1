@@ -8,6 +8,7 @@ public class ConnectionHandler extends Thread {
     private InputStream in;
     private OutputStream out;
     private BufferedReader reader;
+    private boolean running;
 
     public ConnectionHandler(Socket connection) {
         this.connection = connection;
@@ -23,18 +24,25 @@ public class ConnectionHandler extends Thread {
     }
 
     @Override
-    public void run() { // run method is invoked when the Thread's start method (ch.start(); in Server class) is invoked
+    public synchronized void run() {
+        this.running = true;
         System.out.println("new ConnectionHandler thread started .... ");
+
         try {
             printClientData();
         } catch (Exception e) { // exit cleanly for any Exception (including IOException, ClientDisconnectedException)
             System.out.println("ConnectionHandler:run " + e.getMessage());
-            cleanup();     // cleanup and exit
+        } finally {
+            this.cleanup();
         }
     }
 
+    public void shutdown() {
+        this.running = false;
+    }
+
     private void printClientData() throws DisconnectedException, IOException {
-        while (true) {
+        while (this.running) {
             var line = reader.readLine();
 
 
@@ -54,7 +62,7 @@ public class ConnectionHandler extends Thread {
     }
 
 
-    public void cleanup() {
+    private void cleanup() {
 
         System.out.println("ConnectionHandler: cleanup");
         try {
