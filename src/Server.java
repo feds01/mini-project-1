@@ -41,6 +41,7 @@ public class Server implements Runnable {
 
     public void run() {
         Thread.currentThread().setName("Server");
+        var commander = Commander.getInstance();
 
         try {
             this.running.set(true);
@@ -54,19 +55,18 @@ public class Server implements Runnable {
             while (this.running.get()) {
                 Socket socket = this.serverSocket.accept();
 
-                System.out.printf("Got new request from %s%n", socket.getInetAddress());
+                System.out.print("\nGot new request from " + socket.getInetAddress());
 
-                var commander = Commander.getInstance();
-                boolean prompt;
+                String prompt;
 
                 // invoke prompt to accept if we're gonna work with this new connection.
                 if (this.connection != null) { // TODO: check if we're transferring a file or resource.
-                    prompt = commander.pushCommand("connect", "prompt", "priority");
+                    prompt = commander.promptUser("Overwrite current connection with incoming (y/n)?", Commander.POLAR_OPTIONS);
                 } else {
-                    prompt = commander.pushCommand("connect", "prompt");
+                    prompt = commander.promptUser("Allow incoming connection (y/n)?", Commander.POLAR_OPTIONS);
                 }
 
-                if (prompt) {
+                if (prompt.equals("y")) {
                     this.createConnection(socket);
                 } else {
                     var outStream = new DataOutputStream(socket.getOutputStream());

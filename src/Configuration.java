@@ -54,6 +54,14 @@ public class Configuration {
         try (
             var output = Files.newBufferedWriter(Paths.get(this.getClass().getClassLoader().getResource("config.properties").toURI()))
         ) {
+
+            // ensure that the passed value which is a path exists...
+            var path = Paths.get(value);
+
+            if (Files.notExists(path)) {
+                throw new IllegalArgumentException(String.format("Folder '%s' doesn't exist.", value));
+            }
+
             this.properties.store(output, null);
 
         } catch (URISyntaxException | IOException e) {

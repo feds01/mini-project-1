@@ -10,8 +10,8 @@ public class FileShareMain {
         }
 
         // print out application settings.
-        System.out.println("Running with download directory: " + config.get("directory.download"));
-        System.out.println("Running with upload directory: " + config.get("directory.upload"));
+        System.out.println("Running with download directory: " + config.get("download"));
+        System.out.println("Running with upload directory: " + config.get("upload"));
 
         try (
                 var scanner = new Scanner(System.in);
@@ -35,42 +35,12 @@ public class FileShareMain {
 
                 // check if the given command is empty or just whitespaces, if so skip
                 // attempting to decipher the given command.
-                if (commandString.isBlank() || commandString.isEmpty()) {
-                    System.out.print("Command not recognised.\n> ");
-                    continue;
-                }
+                var commandResult = commander.pushCommand(commandString);
 
-                var command = commandString.split(" ");
-
-                // TODO: move this into Commander class.
-                switch (command[0]) {
-                    case "connect": {
-                        // connect code
-                        break;
-                    }
-                    case "quit": {
-                        server.stop();
-                        System.exit(0);
-                    }
-                    case "list": {
-                        System.out.println("List files on peer's side.");
-                        break;
-                    }
-                    case "search": {
-                        System.out.println("Searching for online peers...");
-                    }
-                    case "pull": {
-                        System.out.println("Pulling file....");
-                        break;
-                    }
-                    case "help": {
-                        // print out help stuff
-                        System.out.println("help text");
-                        break;
-                    }
-                    default: {
-                        System.out.println("Command not recognised.");
-                    }
+                // Don't print the result of the command if it's empty. If the result is empty,
+                // the command finished gracefully.
+                if (!commandResult.isEmpty()) {
+                    System.out.println(commandResult);
                 }
 
                 System.out.print("> ");

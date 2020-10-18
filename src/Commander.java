@@ -1,10 +1,10 @@
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 
 public class Commander {
     public Server server;
+
+    static final List<String> POLAR_OPTIONS = List.of("y", "n");
 
     private static final Commander instance = new Commander();
 
@@ -19,22 +19,81 @@ public class Commander {
         this.server = server;
     }
 
-    public boolean pushCommand(String command, String... args) {
+    public String promptUser(String question, List<String> options) {
+        var scanner = new Scanner(System.in);
+        String choice;
 
-        // build List from command and arguments...
-        List<String> commandWithArgs = new ArrayList<>(List.of(command));
+        do {
+            System.out.print(question);
+            choice = scanner.nextLine();
 
-        commandWithArgs.addAll(Arrays.asList(args));
+        }  while (!options.contains(choice));
 
+        return choice;
+    }
 
-        Scanner scanner = new Scanner(String.join(" ", commandWithArgs));
+    public String pushCommand(String commandString) {
 
-        while (scanner.hasNext()) {
-            String element = scanner.next().toLowerCase();
-
-            System.out.println(element);
+        // check if the given command is empty or just whitespaces, if so skip
+        // attempting to decipher the given command.
+        if (commandString.isBlank() || commandString.isEmpty()) {
+            return "Command not recognised.";
         }
 
-        return true;
+        var command = commandString.split(" ");
+
+        switch (command[0]) {
+            case "connect": {
+                // connect code
+                break;
+            }
+            case "quit": {
+                server.stop();
+                System.exit(0);
+            }
+            case "set": {
+
+                // When the set command is invoked, it expects there to be an additional two
+                // arguments specifying the property name, and it's new value.
+                if (command.length != 3) {
+                    return "Usage: set [download|upload] <path>";
+                }
+
+                try {
+                    Configuration.getInstance().set(command[1], command[2]);
+                    break;
+                } catch (IllegalArgumentException e) {
+                    return e.getMessage();
+                }
+            }
+
+            case "list": {
+                System.out.println("List files on peer's side.");
+                break;
+            }
+            case "clear": {
+                System.out.print("\r");
+                System.out.flush();
+                break;
+            }
+            case "search": {
+                System.out.println("Searching for online peers...");
+                break;
+            }
+            case "pull": {
+                System.out.println("Pulling file....");
+                break;
+            }
+            case "help": {
+                // print out help stuff
+                System.out.println("help text");
+                break;
+            }
+            default: {
+                return "Command not recognised.";
+            }
+        }
+
+        return "";
     }
 }
