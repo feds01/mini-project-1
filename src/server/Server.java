@@ -1,7 +1,11 @@
 package server;
 
-import server.ConnectionHandler;
+import common.Configuration;
+import server.resources.DirectoryEntry;
+import server.resources.FileEntry;
+import server.resources.IEntry;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -46,7 +50,6 @@ public class Server implements Runnable {
         worker = new Thread(this);
         worker.start();
     }
-
 
     public boolean isRunning() {
         return this.running.get();

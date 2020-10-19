@@ -2,9 +2,14 @@ package server;
 
 import common.Configuration;
 import common.DisconnectedException;
+import server.resources.DirectoryEntry;
+import server.resources.FileEntry;
+import server.resources.IEntry;
 
 import java.io.*;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ConnectionHandler extends Thread {
     private final Socket connection;
@@ -64,9 +69,31 @@ public class ConnectionHandler extends Thread {
         }
     }
 
+    /**
+     * Method to list the contents of the upload folder. This method will cycle through
+     * all of the upload folder contents and convert each entry into either a DirectoryEntry
+     * or FileEntry. FileEntry object has several methods which allows the caller to invoke
+     * methods that can retrieve metadata from the file like the size or compute the md5 hash.
+     * */
+    private List<IEntry> listUploadFolderContents() {
+        File uploadFolder = new File(Configuration.getInstance().get("upload"));
+
+        List<IEntry> files = new ArrayList<>();
+
+        // Loop through each entry in the upload folder and convert them into FileEntry objects
+        for (File file : uploadFolder.listFiles()) {
+            if (file.isFile()) {
+                files.add( new FileEntry(file.toPath()));
+            } else {
+                files.add( new DirectoryEntry(file.toPath()));
+            }
+        }
+
+        return files;
+    }
+
 
     private void cleanup() {
-
         System.out.println("server.server.ConnectionHandler: cleanup");
         try {
             reader.close();
