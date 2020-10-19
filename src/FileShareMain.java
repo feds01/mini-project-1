@@ -1,3 +1,7 @@
+import cli.Commander;
+import common.Configuration;
+import server.Server;
+
 import java.util.Scanner;
 
 public class FileShareMain {
@@ -21,14 +25,14 @@ public class FileShareMain {
             // boot the server that listens for incoming connections...
             server.start();
 
+            // wait for the server to state that it's successfully started...
             server.getStartSignal().await();
-
 
             // boot up the commander or gui version...
             var commander = Commander.getInstance();
 
+            commander.start();
             commander.setServer(server);
-            System.out.print("> ");
 
             while (scanner.hasNextLine()) {
                 var commandString = scanner.nextLine();
@@ -45,7 +49,6 @@ public class FileShareMain {
 
                 System.out.print("> ");
             }
-
 
             // finally when client sends kill command, close the server and any other
             // resources that need closing...

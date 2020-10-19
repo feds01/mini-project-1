@@ -1,3 +1,6 @@
+package server;
+
+import common.Configuration;
 import common.DisconnectedException;
 
 import java.io.*;
@@ -26,12 +29,12 @@ public class ConnectionHandler extends Thread {
     @Override
     public synchronized void run() {
         this.running = true;
-        System.out.println("new ConnectionHandler thread started .... ");
+        System.out.println("new server.ConnectionHandler thread started .... ");
 
         try {
             printClientData();
         } catch (Exception e) { // exit cleanly for any Exception (including IOException, ClientDisconnectedException)
-            System.out.println("ConnectionHandler:run " + e.getMessage());
+            System.out.println("server.server.ConnectionHandler:run " + e.getMessage());
         } finally {
             this.cleanup();
         }
@@ -47,7 +50,7 @@ public class ConnectionHandler extends Thread {
 
 
             // if readLine fails we can deduce here that the connection to the client is broken
-            // and shut down the connection on this side cleanly by throwing a DisconnectedException
+            // and shut down the connection on this side cleanly by throwing a common.DisconnectedException
             // which will be passed up the call stack to the nearest handler (catch block)
             // in the run method
             if (line == null || line.equals("null") || line.equals(Configuration.exitString)) {
@@ -57,21 +60,21 @@ public class ConnectionHandler extends Thread {
             // a single ACK byte back to client - the client uses this ACK byte to test whether the
             // connection to this server is still live, if not the client shuts down cleanly
             out.write(Configuration.ackByte);
-            System.out.println("ConnectionHandler: " + line); // assuming no exception, print out line received from client
+            System.out.println("server.ConnectionHandler: " + line); // assuming no exception, print out line received from client
         }
     }
 
 
     private void cleanup() {
 
-        System.out.println("ConnectionHandler: cleanup");
+        System.out.println("server.server.ConnectionHandler: cleanup");
         try {
             reader.close();
             in.close();
             connection.close();
         } catch (IOException e) {
             e.printStackTrace();
-            System.out.println("ConnectionHandler: cleanup failed - " + e.getMessage());
+            System.out.println("server.server.ConnectionHandler: cleanup failed - " + e.getMessage());
         }
     }
 }

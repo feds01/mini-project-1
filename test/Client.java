@@ -1,3 +1,4 @@
+import common.Configuration;
 import common.DisconnectedException;
 
 import java.io.*;
@@ -50,7 +51,7 @@ public class Client {
     // or the connection has otherwise been broken. If no result is read
     // within the specified timeout the read method throws SocketTimeoutException
     // which will be passed up the call-stack to the nearest handler (catch block)
-    // in the runClient method. If -1 is read, a DisconnectedException is thrown.
+    // in the runClient method. If -1 is read, a common.DisconnectedException is thrown.
     private void testServerConnection() throws IOException, DisconnectedException, SocketTimeoutException {
         int old_timeout = socket.getSoTimeout();
         socket.setSoTimeout(500);

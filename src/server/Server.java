@@ -1,7 +1,15 @@
-import java.io.DataOutputStream;
+package server;
+
+import server.ConnectionHandler;
+
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -9,12 +17,24 @@ public class Server implements Runnable {
     private final int port;
     private Thread worker;
     private ServerSocket serverSocket;
-    private ConnectionHandler connection;
     private final CountDownLatch startSignal;
+
+    /**
+     * Variable to hold the running status of the server. This variable must be atomic
+     * since the server instance can be accessed within multiple threads.
+     * */
     private final AtomicBoolean running = new AtomicBoolean(false);
+
+
+    /**
+     * A list of ConnectionHandlers that the server shepherds over.
+     * */
+    Map<InetAddress, ConnectionHandler> connections;
+
 
     public Server(int port) {
         this.port = port;
+        this.connections = new HashMap<>();
         this.startSignal = new CountDownLatch(1);
     }
 
@@ -40,8 +60,7 @@ public class Server implements Runnable {
     }
 
     public void run() {
-        Thread.currentThread().setName("Server");
-        var commander = Commander.getInstance();
+        Thread.currentThread().setName("server.Server");
 
         try {
             this.running.set(true);
@@ -55,25 +74,7 @@ public class Server implements Runnable {
             while (this.running.get()) {
                 Socket socket = this.serverSocket.accept();
 
-                System.out.print("\nGot new request from " + socket.getInetAddress());
-
-                String prompt;
-
-                // invoke prompt to accept if we're gonna work with this new connection.
-                if (this.connection != null) { // TODO: check if we're transferring a file or resource.
-                    prompt = commander.promptUser("Overwrite current connection with incoming (y/n)?", Commander.POLAR_OPTIONS);
-                } else {
-                    prompt = commander.promptUser("Allow incoming connection (y/n)?", Commander.POLAR_OPTIONS);
-                }
-
-                if (prompt.equals("y")) {
-                    this.createConnection(socket);
-                } else {
-                    var outStream = new DataOutputStream(socket.getOutputStream());
-
-                    outStream.writeUTF(String.format("%s: Client denied connection.", ServerStatus.DENY_CONNECTION));
-                    socket.close();
-                }
+                this.addConnection(socket);
             }
 
         } catch (IOException e) {
@@ -81,19 +82,38 @@ public class Server implements Runnable {
         }
     }
 
-    public void createConnection(Socket connection) {
-        // create new handler for this connection
-        this.connection = new ConnectionHandler(connection);
-        this.connection.start();
+    public List<ConnectionHandler> getConnections() {
+        return new ArrayList<>(this.connections.values());
     }
 
 
+    public void addConnection(Socket socket) {
+
+        // create new handler for this connection
+        var connection = new ConnectionHandler(socket);
+        connection.start();
+
+
+        this.connections.put(socket.getInetAddress(), connection);
+    }
+
+
+    /**
+     * Method to shutdown the server instance gracefully. This method will
+     * check if it needs to close any current connections or transfers. The
+     * method will also close the SocketServer instance after it finishes closing
+     * any connections it is currently hosting.
+     *
+     * If the server couldn't gracefully shutdown, the exception stack
+     * trace is printed since this should be the exit point of the application.
+     * */
     public void cleanup() {
         try {
-            // close the connection if one exists...
-            if (connection != null && connection.isAlive()) {
-                connection.shutdown();
+            // check if we need to close any pending connections.
+            if (this.connections.size() > 0) {
+                this.connections.values().forEach(ConnectionHandler::shutdown);
             }
+
 
             System.out.println("File server shutting down...");
             serverSocket.close();

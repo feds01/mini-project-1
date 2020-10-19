@@ -1,10 +1,10 @@
-import java.util.List;
-import java.util.Scanner;
+package cli;
+
+import common.Configuration;
+import server.Server;
 
 public class Commander {
     public Server server;
-
-    static final List<String> POLAR_OPTIONS = List.of("y", "n");
 
     private static final Commander instance = new Commander();
 
@@ -15,21 +15,13 @@ public class Commander {
         return instance;
     }
 
-    public void setServer(Server server) {
-        this.server = server;
+
+    public void start() {
+        System.out.print("> ");
     }
 
-    public String promptUser(String question, List<String> options) {
-        var scanner = new Scanner(System.in);
-        String choice;
-
-        do {
-            System.out.print(question);
-            choice = scanner.nextLine();
-
-        }  while (!options.contains(choice));
-
-        return choice;
+    public void setServer(Server server) {
+        this.server = server;
     }
 
     public String pushCommand(String commandString) {
@@ -44,6 +36,12 @@ public class Commander {
 
         switch (command[0]) {
             case "connect": {
+                // expect 2 additional parameters
+
+                if (command.length != 2) {
+                    return "Usage: connect <address|dns>";
+                }
+
                 // connect code
                 break;
             }
@@ -72,8 +70,7 @@ public class Commander {
                 break;
             }
             case "clear": {
-                System.out.print("\r");
-                System.out.flush();
+                System.out.print("\033[H\033[2J");
                 break;
             }
             case "search": {
