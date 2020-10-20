@@ -8,7 +8,7 @@ import java.util.Properties;
 
 public class Configuration {
     public static final String exitString = "exit";
-    public static final byte ackByte = 1;
+    public static final byte ackByte = -1;
 
 
     private Properties properties;

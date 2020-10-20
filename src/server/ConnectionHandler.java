@@ -1,5 +1,6 @@
 package server;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import common.Configuration;
 import common.DisconnectedException;
 import server.resources.DirectoryEntry;
@@ -12,9 +13,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ConnectionHandler extends Thread {
+    public final static ObjectMapper mapper = new ObjectMapper();
+
     private final Socket connection;
-    private InputStream in;
-    private OutputStream out;
+    private InputStream inputStream;
+    private DataOutputStream outputStream;
     private BufferedReader reader;
     private boolean running;
 
@@ -22,9 +25,9 @@ public class ConnectionHandler extends Thread {
         this.connection = connection;
 
         try {
-            this.in = connection.getInputStream();
-            this.out = connection.getOutputStream();
-            this.reader = new BufferedReader(new InputStreamReader(this.in));
+            this.inputStream = connection.getInputStream();
+            this.outputStream = new DataOutputStream(connection.getOutputStream());
+            this.reader = new BufferedReader(new InputStreamReader(this.inputStream));
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -34,10 +37,9 @@ public class ConnectionHandler extends Thread {
     @Override
     public synchronized void run() {
         this.running = true;
-        System.out.println("new server.ConnectionHandler thread started .... ");
 
         try {
-            printClientData();
+            this.listen();
         } catch (Exception e) { // exit cleanly for any Exception (including IOException, ClientDisconnectedException)
             System.out.println("server.server.ConnectionHandler:run " + e.getMessage());
         } finally {
@@ -49,10 +51,9 @@ public class ConnectionHandler extends Thread {
         this.running = false;
     }
 
-    private void printClientData() throws DisconnectedException, IOException {
+    private void listen() throws DisconnectedException, IOException {
         while (this.running) {
             var line = reader.readLine();
-
 
             // if readLine fails we can deduce here that the connection to the client is broken
             // and shut down the connection on this side cleanly by throwing a common.DisconnectedException
@@ -61,11 +62,47 @@ public class ConnectionHandler extends Thread {
             if (line == null || line.equals("null") || line.equals(Configuration.exitString)) {
                 throw new DisconnectedException(" ... client has closed the connection ... ");
             }
-            // in this simple setup all the server does in response to messages from the client is to send
-            // a single ACK byte back to client - the client uses this ACK byte to test whether the
-            // connection to this server is still live, if not the client shuts down cleanly
-            out.write(Configuration.ackByte);
-            System.out.println("server.ConnectionHandler: " + line); // assuming no exception, print out line received from client
+
+            // create an initial json object that will be used as a response.
+            var response = mapper.createObjectNode();
+
+            switch(line) {
+                case "list":
+                    var fileList = mapper.createArrayNode();
+
+                    // Iterate over the entry list and append the appropriate metadata on
+                    for (IEntry entry : this.getUploadFolderContents()) {
+                        var fileEntry = mapper.createObjectNode();
+
+
+                        // append metadata about the objects in the
+                        fileEntry.put("type", entry.getType().toString());
+                        fileEntry.put("path", entry.getPath().toString());
+
+                        fileList.add(fileEntry);
+                    }
+
+                    // set the data into the response.
+                    response.set("files", fileList);
+                    break;
+                case "peers": {
+                    response.put("message", "Peers not implemented yet.");
+                    break;
+                }
+                case "get": {
+                    response.put("message", "Get not implemented yet.");
+                    break;
+                }
+
+                default: {
+                    response.put("message", "Command is invalid.");
+                }
+            }
+
+            // Finally, convert the response into a byte array and send it to the client.
+            outputStream.write(mapper.writeValueAsBytes(response));
+            outputStream.write('\r');
+            outputStream.flush();
         }
     }
 
@@ -74,8 +111,10 @@ public class ConnectionHandler extends Thread {
      * all of the upload folder contents and convert each entry into either a DirectoryEntry
      * or FileEntry. FileEntry object has several methods which allows the caller to invoke
      * methods that can retrieve metadata from the file like the size or compute the md5 hash.
+     *
+     * @return A list of file/directory entries based on the location of the upload folder.
      * */
-    private List<IEntry> listUploadFolderContents() {
+    private List<IEntry> getUploadFolderContents() {
         File uploadFolder = new File(Configuration.getInstance().get("upload"));
 
         List<IEntry> files = new ArrayList<>();
@@ -97,7 +136,7 @@ public class ConnectionHandler extends Thread {
         System.out.println("server.server.ConnectionHandler: cleanup");
         try {
             reader.close();
-            in.close();
+            inputStream.close();
             connection.close();
         } catch (IOException e) {
             e.printStackTrace();

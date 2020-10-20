@@ -1,10 +1,14 @@
 package cli;
 
+import client.Client;
+import client.Networking;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import common.Configuration;
 import server.Server;
 
 public class Commander {
-    public Server server;
+    private Server server;
+    private Client client;
 
     private static final Commander instance = new Commander();
 
@@ -36,13 +40,19 @@ public class Commander {
 
         switch (command[0]) {
             case "connect": {
-                // expect 2 additional parameters
-
+                // expect one additional parameter, being the address
                 if (command.length != 2) {
-                    return "Usage: connect <address|dns>";
+                    return "Usage: connect <address>";
                 }
 
-                // connect code
+                try {
+                    var address = Networking.parseAddressFromString(command[1]);
+
+                    this.client = new Client(address.getHostName(), address.getPort());
+                } catch (IllegalArgumentException e) {
+                    return e.getMessage();
+                }
+
                 break;
             }
             case "quit": {
@@ -66,7 +76,18 @@ public class Commander {
             }
 
             case "list": {
-                System.out.println("List files on peer's side.");
+                if (this.client == null) {
+                    return "Not connected to any peer.";
+                }
+
+                // TODO: This is temporarily here for testing.
+                var response = this.client.sendCommand("list");
+
+                try {
+                    return Client.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
+                } catch (JsonProcessingException e) {
+                    e.printStackTrace();
+                }
                 break;
             }
             case "clear": {
@@ -78,7 +99,20 @@ public class Commander {
                 break;
             }
             case "pull": {
-                System.out.println("Pulling file....");
+                if (this.client == null) {
+                    return "Not connected to any peer.";
+                }
+
+                // TODO: This is temporarily here for testing.
+                var response = this.client.sendCommand("get");
+
+
+                try {
+                    return Client.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
+                } catch (JsonProcessingException e) {
+                    e.printStackTrace();
+                }
+
                 break;
             }
             case "help": {

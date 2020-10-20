@@ -1,4 +1,5 @@
 import cli.Commander;
+import client.Networking;
 import common.Configuration;
 import server.Server;
 
@@ -8,10 +9,10 @@ public class FileShareMain {
     public static void main(String[] args) {
         var config = Configuration.getInstance();
 
-        if (args.length == 0) {
-            System.out.println("Usage: java FileShareMain <port>");
-            System.exit(1);
-        }
+//        if (args.length == 0) {
+//            System.out.println("Usage: java FileShareMain <port>");
+//            System.exit(1);
+//        }
 
         // print out application settings.
         System.out.println("Running with download directory: " + config.get("download"));
@@ -20,7 +21,7 @@ public class FileShareMain {
         try (
                 var scanner = new Scanner(System.in);
         ) {
-            var server = new Server(Integer.parseInt(args[0]));
+            var server = new Server(Networking.getFreePort());
 
             // boot the server that listens for incoming connections...
             server.start();
