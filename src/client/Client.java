@@ -3,17 +3,16 @@ package client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import common.DisconnectedException;
+import server.protocol.Command;
 
 import java.io.*;
 import java.net.ConnectException;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.util.List;
 
 public class Client {
     public final static ObjectMapper mapper = new ObjectMapper();
-    private final static List<String> CLIENT_COMMANDS = List.of("get", "list", "peers");
     private final static int CONNECTION_TIMEOUT = 500;
 
     private Socket socket;
@@ -68,15 +67,10 @@ public class Client {
     }
 
 
-    public JsonNode sendCommand(String command) {
+    public JsonNode sendCommand(Command command) {
         JsonNode response = mapper.createObjectNode();
 
-        // check that the command is a valid and defined command.
-        if (!CLIENT_COMMANDS.contains(command)) {
-            throw new IllegalArgumentException("Invalid client command.");
-        }
-
-        this.outputStream.println(command);
+        this.outputStream.println(command.toString());
         this.outputStream.flush();
 
 

@@ -1,7 +1,11 @@
 package server;
 
 
+import com.fasterxml.jackson.databind.JsonNode;
+import server.protocol.Command;
+
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -10,6 +14,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Server implements Runnable {
@@ -24,17 +31,39 @@ public class Server implements Runnable {
      * */
     private final AtomicBoolean running = new AtomicBoolean(false);
 
+    /**
+     * Our scheduler instance that will query all of our 'known' peers for their
+     * information on their known peers.
+     * */
+    private final ScheduledExecutorService scheduler;
 
     /**
      * A list of ConnectionHandlers that the server shepherds over.
      * */
     Map<InetAddress, ConnectionHandler> connections;
 
+    final Runnable queryTask = new Runnable() {
+        @Override
+        public void run() {
+            List<JsonNode> responses = new ArrayList<>();
+
+            for (var connection : connections.values()) {
+                var response = connection.sendCommand(Command.Peers);
+
+                responses.add(response);
+            }
+
+            // TODO: do some logic with these responses.
+        }
+    };
 
     public Server(int port) {
         this.port = port;
         this.connections = new HashMap<>();
         this.startSignal = new CountDownLatch(1);
+
+        this.scheduler = Executors.newScheduledThreadPool(1);
+
     }
 
     public CountDownLatch getStartSignal() {
@@ -56,6 +85,17 @@ public class Server implements Runnable {
 
     public void run() {
         Thread.currentThread().setName("server.Server");
+
+        // Add a scheduled task to query all of our known peers for their
+        // peer information. This is also used to check if some connections
+        // are dead instead of the ConnectionHandler notifying the server
+        // instance that said connection is dead. By using a ScheduledExecutorService
+        // task we can run a 'Runnable' instance every 60 seconds to send the
+        // 'peers' command.
+        var handle = scheduler.scheduleAtFixedRate(queryTask, 2, 5, TimeUnit.SECONDS);
+
+        scheduler.schedule((Runnable) () -> handle.cancel(true), 60, TimeUnit.SECONDS);
+
 
         try {
             this.running.set(true);
@@ -88,7 +128,6 @@ public class Server implements Runnable {
         // create new handler for this connection
         var connection = new ConnectionHandler(socket);
         connection.start();
-
 
         this.connections.put(socket.getInetAddress(), connection);
     }

@@ -1,17 +1,21 @@
 package server;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import common.Configuration;
 import common.DisconnectedException;
+import server.protocol.Command;
 import server.resources.DirectoryEntry;
 import server.resources.FileEntry;
 import server.resources.IEntry;
 
 import java.io.*;
+import java.net.ConnectException;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 
 public class ConnectionHandler extends Thread {
     public final static ObjectMapper mapper = new ObjectMapper();
@@ -42,11 +46,7 @@ public class ConnectionHandler extends Thread {
 
         try {
             this.listen();
-        } catch (IOException e) {
-            // Something went wrong here that should not of gone wrong
-            // TODO: replace this with a logging statement
-            System.out.println("server.server.ConnectionHandler:run " + e.getMessage());
-        } catch (DisconnectedException e) {
+        } catch (IOException | DisconnectedException e) {
             this.cleanup();
         }
     }
@@ -57,13 +57,13 @@ public class ConnectionHandler extends Thread {
 
     private void listen() throws DisconnectedException, IOException {
         while (this.running.get()) {
-            var line = reader.readLine();
+            var line = Command.valueOf(reader.readLine());
 
             // if readLine fails we can deduce here that the connection to the client is broken
             // and shut down the connection on this side cleanly by throwing a common.DisconnectedException
             // which will be passed up the call stack to the nearest handler (catch block)
             // in the run method
-            if (line == null || line.equals("null") || line.equals(Configuration.exitString)) {
+            if (line == null) {
                 throw new DisconnectedException(" ... client has closed the connection ... ");
             }
 
@@ -71,7 +71,7 @@ public class ConnectionHandler extends Thread {
             var response = mapper.createObjectNode();
 
             switch(line) {
-                case "list":
+                case List:
                     var fileList = mapper.createArrayNode();
 
                     // Iterate over the entry list and append the appropriate metadata on
@@ -89,18 +89,20 @@ public class ConnectionHandler extends Thread {
                     // set the data into the response.
                     response.set("files", fileList);
                     break;
-                case "peers": {
+                case Peers: {
                     response.put("message", "Peers not implemented yet.");
                     break;
                 }
-                case "get": {
+                case Get: {
                     response.put("message", "Get not implemented yet.");
                     break;
                 }
 
-                default: {
-                    response.put("message", "Command is invalid.");
+                case Download: {
+                    response.put("message", "Download not implemented yet.");
+                    break;
                 }
+
             }
 
             // Finally, convert the response into a byte array and send it to the client.
@@ -148,5 +150,13 @@ public class ConnectionHandler extends Thread {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public JsonNode sendCommand(Command command) {
+        var response = mapper.createObjectNode();
+
+        // TODO: implement sending a command.
+
+        return response;
     }
 }

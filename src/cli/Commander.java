@@ -1,14 +1,23 @@
 package cli;
 
 import client.Client;
-import common.Networking;
+import client.Downloader;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import common.Configuration;
+import common.Networking;
 import server.Server;
+import server.protocol.Command;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class Commander {
     private Server server;
     private Client client;
+
+    // This is an internal list of download instances that are being
+    // orchestrated by
+    private final List<Downloader> downloads = new ArrayList<>();
 
     private static final Commander instance = new Commander();
 
@@ -80,34 +89,36 @@ public class Commander {
                     return "Not connected to any peer.";
                 }
 
-                var response = this.client.sendCommand("list");
+
+                var response = this.client.sendCommand(Command.List);
 
                 // Check to ensure that the client sent, and received a response. If something
                 // didn't go to accord on the way, the response object should be a null. Hence,
                 // it's ok to skip printing the response and to move on.
                 if (response != null) {
-                    // Use a printer function provided by resource list.
-                    ResourceList.printResources(response);
+                    var printer = new ResourceList(response);
+
+                    printer.print();  // Use a printer function provided by resource list.
                 }
 
-                break;
-            }
-            case "clear": {
-                System.out.print("\033[H\033[2J");
                 break;
             }
             case "search": {
                 System.out.println("Searching for online peers...");
                 break;
             }
-            case "pull": {
+            case "get-file": {
                 if (this.client == null) {
                     return "Not connected to any peer.";
                 }
 
-                // TODO: This is temporarily here for testing.
-                var response = this.client.sendCommand("get");
+                // We'll first need to query the metadata on this file from the server.
+                // We need to get the size of the file to check that it will fit onto
+                // our local machine, and we need to get the computed MD5 hash so we can
+                // later verify the integrity of the file...
+                var response = this.client.sendCommand(Command.Get);
 
+                // TODO: append the request to our Downloads...
 
                 try {
                     return Client.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
@@ -117,6 +128,15 @@ public class Commander {
 
                 break;
             }
+
+            // Command to print the working status of any on-going downloads that are occurring.
+            case "status": {
+                if (this.downloads.size() == 0) {
+                    return "No active downloads.";
+                }
+
+            }
+
             case "help": {
                 // print out help stuff
                 System.out.println("help text");

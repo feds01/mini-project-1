@@ -1,4 +1,4 @@
 package client;
 
-public class Downloader {
+public class Downloader extends Thread {
 }
