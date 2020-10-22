@@ -1,7 +1,7 @@
 package cli;
 
 import client.Client;
-import client.Networking;
+import common.Networking;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import common.Configuration;
 import server.Server;
@@ -80,14 +80,16 @@ public class Commander {
                     return "Not connected to any peer.";
                 }
 
-                // TODO: This is temporarily here for testing.
                 var response = this.client.sendCommand("list");
 
-                try {
-                    return Client.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
-                } catch (JsonProcessingException e) {
-                    e.printStackTrace();
+                // Check to ensure that the client sent, and received a response. If something
+                // didn't go to accord on the way, the response object should be a null. Hence,
+                // it's ok to skip printing the response and to move on.
+                if (response != null) {
+                    // Use a printer function provided by resource list.
+                    ResourceList.printResources(response);
                 }
+
                 break;
             }
             case "clear": {

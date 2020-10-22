@@ -12,7 +12,7 @@ public class DirectoryEntry implements IEntry {
 
     @Override
     public EntryType getType() {
-        return EntryType.FILE;
+        return EntryType.DIRECTORY;
     }
 
     @Override

@@ -1,11 +1,6 @@
 package server;
 
-import common.Configuration;
-import server.resources.DirectoryEntry;
-import server.resources.FileEntry;
-import server.resources.IEntry;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -56,10 +51,7 @@ public class Server implements Runnable {
     }
 
     public void stop() {
-        this.cleanup();
-
         running.set(false);
-        worker.interrupt();
     }
 
     public void run() {
@@ -75,13 +67,14 @@ public class Server implements Runnable {
             this.startSignal.countDown();
 
             while (this.running.get()) {
-                Socket socket = this.serverSocket.accept();
+                var socket = this.serverSocket.accept();
 
                 this.addConnection(socket);
             }
-
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println("File server shutting down...");
+        } finally {
+            this.cleanup();
         }
     }
 
@@ -90,7 +83,7 @@ public class Server implements Runnable {
     }
 
 
-    public void addConnection(Socket socket) {
+    private void addConnection(Socket socket) {
 
         // create new handler for this connection
         var connection = new ConnectionHandler(socket);
@@ -110,20 +103,20 @@ public class Server implements Runnable {
      * If the server couldn't gracefully shutdown, the exception stack
      * trace is printed since this should be the exit point of the application.
      * */
-    public void cleanup() {
+    private void cleanup() {
         try {
             // check if we need to close any pending connections.
             if (this.connections.size() > 0) {
                 this.connections.values().forEach(ConnectionHandler::shutdown);
             }
 
-
-            System.out.println("File server shutting down...");
             serverSocket.close();
 
         } catch (IOException e) {
             System.out.println("File server couldn't shutdown gracefully.");
             e.printStackTrace();
+        } finally {
+            worker.interrupt();
         }
     }
 }

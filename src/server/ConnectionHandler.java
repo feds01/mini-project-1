@@ -11,6 +11,7 @@ import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ConnectionHandler extends Thread {
     public final static ObjectMapper mapper = new ObjectMapper();
@@ -19,7 +20,8 @@ public class ConnectionHandler extends Thread {
     private InputStream inputStream;
     private DataOutputStream outputStream;
     private BufferedReader reader;
-    private boolean running;
+
+    private final AtomicBoolean running = new AtomicBoolean(false);
 
     public ConnectionHandler(Socket connection) {
         this.connection = connection;
@@ -36,23 +38,25 @@ public class ConnectionHandler extends Thread {
 
     @Override
     public synchronized void run() {
-        this.running = true;
+        this.running.set(true);
 
         try {
             this.listen();
-        } catch (Exception e) { // exit cleanly for any Exception (including IOException, ClientDisconnectedException)
+        } catch (IOException e) {
+            // Something went wrong here that should not of gone wrong
+            // TODO: replace this with a logging statement
             System.out.println("server.server.ConnectionHandler:run " + e.getMessage());
-        } finally {
+        } catch (DisconnectedException e) {
             this.cleanup();
         }
     }
 
     public void shutdown() {
-        this.running = false;
+        this.running.set(false);
     }
 
     private void listen() throws DisconnectedException, IOException {
-        while (this.running) {
+        while (this.running.get()) {
             var line = reader.readLine();
 
             // if readLine fails we can deduce here that the connection to the client is broken
@@ -77,7 +81,7 @@ public class ConnectionHandler extends Thread {
 
                         // append metadata about the objects in the
                         fileEntry.put("type", entry.getType().toString());
-                        fileEntry.put("path", entry.getPath().toString());
+                        fileEntry.put("path", entry.getPath().getFileName().toString());
 
                         fileList.add(fileEntry);
                     }
@@ -104,6 +108,10 @@ public class ConnectionHandler extends Thread {
             outputStream.write('\r');
             outputStream.flush();
         }
+
+        // Invoke the clean-up function after the listener finishes it's work, or gets
+        // terminated externally by the server.
+        this.cleanup();
     }
 
     /**
@@ -133,14 +141,12 @@ public class ConnectionHandler extends Thread {
 
 
     private void cleanup() {
-        System.out.println("server.server.ConnectionHandler: cleanup");
         try {
             reader.close();
             inputStream.close();
             connection.close();
         } catch (IOException e) {
             e.printStackTrace();
-            System.out.println("server.server.ConnectionHandler: cleanup failed - " + e.getMessage());
         }
     }
 }

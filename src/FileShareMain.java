@@ -1,5 +1,5 @@
 import cli.Commander;
-import client.Networking;
+import common.Networking;
 import common.Configuration;
 import server.Server;
 

@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import common.DisconnectedException;
 
 import java.io.*;
+import java.net.ConnectException;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.List;
 
@@ -35,13 +37,13 @@ public class Client {
             this.inputStream = new DataInputStream(socket.getInputStream());
             this.outputStream = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
 
-        } catch (UnknownHostException e) {
+        } catch (UnknownHostException | ConnectException e) {
             System.out.println("Unknown host.");
         } catch (Exception e) {
-            System.out.println("Oops on connection to " + host + " on port " + port + ". ");
+            System.out.printf("Lost Connection to %s:%s%n", host, port);
             e.printStackTrace();
 
-            cleanup();
+            this.cleanup();
         }
     }
 
@@ -84,7 +86,7 @@ public class Client {
             byte[] buffer = new byte[1024];
             int chunk;
 
-            while ((chunk = this.inputStream.read(buffer, 0, 1024)) != -1) {
+            while ((chunk = this.inputStream.read(buffer, 0, 1024)) > 0) {
 
                 // If the server sends a carriage return, that's the end of the response.
                 // TODO: do this in a much cleaner way.
@@ -96,8 +98,17 @@ public class Client {
             }
 
             bufferStream.flush();
-
             response = mapper.readTree(bufferStream.toByteArray());
+
+        } catch (SocketException e) {
+            // When the stream throws a SocketException, this means that server
+            // unexpectedly severed our connection. This could mean that the server
+            // died or close the connection. In this case, we'll report this to the
+            // user and invoke a clean-up operation.
+            System.out.printf("Couldn't send '%s' command. Lost Connection to %s:%s%n", command, host, port);
+            this.cleanup();
+
+            return null;
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -107,7 +118,6 @@ public class Client {
 
 
     private void cleanup() {
-        System.out.println("Client: ... cleaning up and exiting ... ");
         try {
             if (outputStream != null) outputStream.close();
             if (socket != null) socket.close();
