@@ -11,6 +11,8 @@ import server.resources.IEntry;
 
 import java.io.*;
 import java.net.Socket;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -18,6 +20,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ConnectionHandler extends Thread {
     public final static ObjectMapper mapper = new ObjectMapper();
+
+    private final Configuration config = Configuration.getInstance();
 
     private final Socket connection;
     private InputStream inputStream;
@@ -56,20 +60,27 @@ public class ConnectionHandler extends Thread {
 
     private void listen() throws DisconnectedException, IOException {
         while (this.running.get()) {
-            var line = Command.valueOf(reader.readLine());
+
+            // We expect to get the first argument as the name of the command that is being
+            // invoked for the server to respond. Any further components of the request are
+            // treated as arguments that complement the command. For example, if the requester
+            // send the request "Get file_a.txt", then the server should perform the get
+            // command with the file argument as 'file_a.txt'.
+            var request = reader.readLine().split(" ");
+            var command = Command.valueOf(request[0]);
 
             // if readLine fails we can deduce here that the connection to the client is broken
             // and shut down the connection on this side cleanly by throwing a common.DisconnectedException
             // which will be passed up the call stack to the nearest handler (catch block)
             // in the run method
-            if (line == null) {
+            if (command == null) {
                 throw new DisconnectedException(" ... client has closed the connection ... ");
             }
 
             // create an initial json object that will be used as a response.
             var response = mapper.createObjectNode();
 
-            switch(line) {
+            switch(command) {
                 case List:
                     var fileList = mapper.createArrayNode();
 
@@ -93,7 +104,39 @@ public class ConnectionHandler extends Thread {
                     break;
                 }
                 case Get: {
-                    response.put("message", "Get not implemented yet.");
+                    var fileURI = request[1];
+
+                    // the requester didn't provide an argument to the get command, and
+                    // hence is asking to get nothing.
+                    if (fileURI == null) {
+                        response.put("message", "Nothing to get.");
+                        response.put("status", false);
+                        break;
+                    }
+
+                    // test that the fileURI is valid relative to our upload folder.
+                    // We must prevent the client from attempting to query a file out
+                    // of the upload folder scope. We will attempt to concatenate the
+                    // provided fileURI with our upload folder value. If the path
+                    // exists and is a file
+                    var file = new File(String.valueOf(Paths.get(config.get("upload"), fileURI)));
+
+                    if (!file.getAbsolutePath().startsWith(config.get("upload")) || !file.exists()) {
+                        response.put("message", "No such file exists.");
+                        response.put("status", false);
+                        break;
+                    }
+
+                    // compute the size and md5 hash of the file, send the parameters to
+                    // the requester as specified by the protocol...
+                    var fileLoader = new FileEntry(Path.of(file.getAbsolutePath()));
+
+                    fileLoader.load();
+
+                    response.put("digest", fileLoader.getDigest());
+                    response.put("size", fileLoader.getSize());
+                    response.put("message", "Getting file...");
+                    response.put("status", true);
                     break;
                 }
 

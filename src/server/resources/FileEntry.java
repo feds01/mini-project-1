@@ -1,16 +1,16 @@
 package server.resources;
 
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class FileEntry implements IEntry {
     private final Path path;
-    private InputStream fileStream;
+    private FileInputStream fileStream;
     private byte[] digest;
+    private long size;
 
 
     public FileEntry(Path path) {
@@ -18,15 +18,16 @@ public class FileEntry implements IEntry {
     }
 
     public void load() {
-        try  {
+        try {
             MessageDigest md = MessageDigest.getInstance("MD5");
 
-            this.fileStream = Files.newInputStream(path);
+            this.fileStream = new FileInputStream(String.valueOf(path));
 
             md.update(this.fileStream.readAllBytes());
 
             // Update our digest with the processed digest of the file stream.
             this.digest = md.digest();
+            this.size = this.fileStream.getChannel().size();
 
 
         } catch (IOException | NoSuchAlgorithmException e) {
@@ -38,7 +39,11 @@ public class FileEntry implements IEntry {
         return this.digest;
     }
 
-    public InputStream getFileStream() {
+    public long getSize() {
+        return this.size;
+    }
+
+    public FileInputStream getFileStream() {
         return this.fileStream;
     }
 

@@ -10,7 +10,7 @@ import java.net.*;
 
 public class Client {
     public final static ObjectMapper mapper = new ObjectMapper();
-    private final static int CONNECTION_TIMEOUT = 1000;
+    private final static int CONNECTION_TIMEOUT = 5000;
 
     private Socket socket;
     private final int port;
@@ -65,10 +65,10 @@ public class Client {
     }
 
 
-    public JsonNode sendCommand(Command command) {
+    public JsonNode sendCommand(Command command, String... args) {
         JsonNode response = mapper.createObjectNode();
 
-        this.outputStream.println(command.toString());
+        this.outputStream.println(String.format("%s %s", command, String.join(" ", args)));
         this.outputStream.flush();
 
 

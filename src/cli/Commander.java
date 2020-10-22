@@ -2,21 +2,24 @@ package cli;
 
 import client.Client;
 import client.Downloader;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import common.Configuration;
 import common.Networking;
 import server.Server;
 import server.protocol.Command;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class Commander {
     private Server server;
     private Client client;
 
+    private final Configuration config = Configuration.getInstance();
+
     // This is an internal list of download instances that are being
-    // orchestrated by
+    // orchestrated by the server
     private final List<Downloader> downloads = new ArrayList<>();
 
     private static final Commander instance = new Commander();
@@ -77,7 +80,7 @@ public class Commander {
                 }
 
                 try {
-                    Configuration.getInstance().set(command[1], command[2]);
+                    this.config.set(command[1], command[2]);
                     break;
                 } catch (IllegalArgumentException e) {
                     return e.getMessage();
@@ -88,7 +91,6 @@ public class Commander {
                 if (this.client == null) {
                     return "Not connected to any peer.";
                 }
-
 
                 var response = this.client.sendCommand(Command.List);
 
@@ -104,10 +106,9 @@ public class Commander {
                 break;
             }
             case "search": {
-                System.out.println("Searching for online peers...");
                 break;
             }
-            case "get-file": {
+            case "get": {
                 if (this.client == null) {
                     return "Not connected to any peer.";
                 }
@@ -116,15 +117,29 @@ public class Commander {
                 // We need to get the size of the file to check that it will fit onto
                 // our local machine, and we need to get the computed MD5 hash so we can
                 // later verify the integrity of the file...
-                var response = this.client.sendCommand(Command.Get);
+                var response = this.client.sendCommand(Command.Get, Arrays.copyOfRange(command, 1, command.length));
 
-                // TODO: append the request to our Downloads...
+                if (response.get("status").asBoolean()) {
+                    var size = response.get("size").asLong();
 
-                try {
-                    return Client.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
-                } catch (JsonProcessingException e) {
-                    e.printStackTrace();
+                    // we need to check that the partition or disk that the download folder
+                    // is present on has enough free space (initially) to save the file.
+                    // Otherwise, we won't be able to write the file onto the storage.
+                    var downloadPath = new File(config.get("download"));
+
+                    // This is of course a very edge case scenario, but nevertheless a potential issue...
+                    if (downloadPath.getFreeSpace() < size) {
+                        return "No enough space on download folder drive to download file.";
+                    }
+
+                    // TODO: spin up a downloader instance and start downloading!
+                    break;
+                } else {
+                    // the response always returns the status of the request that can be used to
+                    // inform the state of the request.
+                    System.out.println(response.get("message").asText());
                 }
+
 
                 break;
             }
