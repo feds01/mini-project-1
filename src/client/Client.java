@@ -6,20 +6,17 @@ import common.DisconnectedException;
 import server.protocol.Command;
 
 import java.io.*;
-import java.net.ConnectException;
-import java.net.Socket;
-import java.net.SocketException;
-import java.net.UnknownHostException;
+import java.net.*;
 
 public class Client {
     public final static ObjectMapper mapper = new ObjectMapper();
-    private final static int CONNECTION_TIMEOUT = 500;
+    private final static int CONNECTION_TIMEOUT = 1000;
 
     private Socket socket;
     private final int port;
     private final String host;
     private PrintWriter outputStream;
-    private DataInputStream inputStream;
+    private BufferedReader inputStream;
 
     public Client(String host, int port) {
         this.host = host;
@@ -32,8 +29,9 @@ public class Client {
     private void run() {
         try {
             this.socket = new Socket(host, port);
+            this.socket.setSoTimeout(CONNECTION_TIMEOUT);
 
-            this.inputStream = new DataInputStream(socket.getInputStream());
+            this.inputStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.outputStream = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
 
         } catch (UnknownHostException | ConnectException e) {
@@ -75,24 +73,9 @@ public class Client {
 
 
         try {
-            ByteArrayOutputStream bufferStream = new ByteArrayOutputStream();
+            var content = this.inputStream.readLine();
 
-            byte[] buffer = new byte[1024];
-            int chunk;
-
-            while ((chunk = this.inputStream.read(buffer, 0, 1024)) > 0) {
-
-                // If the server sends a carriage return, that's the end of the response.
-                // TODO: do this in a much cleaner way.
-                if (buffer[chunk - 1] == '\r') {
-                    break;
-                }
-
-                bufferStream.write(buffer, 0, chunk);
-            }
-
-            bufferStream.flush();
-            response = mapper.readTree(bufferStream.toByteArray());
+            response = mapper.readTree(content);
 
         } catch (SocketException e) {
             // When the stream throws a SocketException, this means that server

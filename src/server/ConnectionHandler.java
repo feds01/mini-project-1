@@ -10,7 +10,6 @@ import server.resources.FileEntry;
 import server.resources.IEntry;
 
 import java.io.*;
-import java.net.ConnectException;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +21,7 @@ public class ConnectionHandler extends Thread {
 
     private final Socket connection;
     private InputStream inputStream;
-    private DataOutputStream outputStream;
+    private PrintWriter outputStream;
     private BufferedReader reader;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -32,7 +31,7 @@ public class ConnectionHandler extends Thread {
 
         try {
             this.inputStream = connection.getInputStream();
-            this.outputStream = new DataOutputStream(connection.getOutputStream());
+            this.outputStream = new PrintWriter(connection.getOutputStream());
             this.reader = new BufferedReader(new InputStreamReader(this.inputStream));
 
         } catch (IOException e) {
@@ -106,8 +105,7 @@ public class ConnectionHandler extends Thread {
             }
 
             // Finally, convert the response into a byte array and send it to the client.
-            outputStream.write(mapper.writeValueAsBytes(response));
-            outputStream.write('\r');
+            outputStream.println(mapper.writeValueAsString(response));
             outputStream.flush();
         }
 
