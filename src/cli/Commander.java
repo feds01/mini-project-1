@@ -3,6 +3,7 @@ package cli;
 import cli.printers.ResourceList;
 import client.Client;
 import client.Downloader;
+import client.DownloaderStatus;
 import common.Configuration;
 import common.Networking;
 import server.Server;
@@ -155,15 +156,23 @@ public class Commander {
             }
             // Command to print the working status of any on-going downloads that are occurring.
             case "status": {
-
-                // TODO: check here if we need to clean up any threads that have finished executing.
-                for (var download : this.downloads) {
-                    System.out.println(download.getProgressString());
-                }
-
                 if (this.downloads.size() == 0) {
                     return "No active downloads.";
                 }
+
+                var completedDownloads = new ArrayList<Downloader>();
+
+                for (var download : this.downloads) {
+                    System.out.println(download.getProgressString());
+
+                    // Remove the downloader instance from the list when it finished
+                    // executing.
+                    if (download.getStatus().equals(DownloaderStatus.FINISHED)) {
+                        completedDownloads.add(download);
+                    }
+                }
+
+                this.downloads.removeAll(completedDownloads);
 
                 break;
             }

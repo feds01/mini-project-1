@@ -2,8 +2,8 @@ package client;
 
 
 import com.fasterxml.jackson.databind.JsonNode;
-import common.resources.FileEntry;
 import common.protocol.Command;
+import common.resources.FileEntry;
 
 import java.io.*;
 import java.nio.file.Path;
@@ -14,16 +14,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  *
- * */
+ */
 public class Downloader extends BaseConnection implements Runnable {
     /**
      *
-     * */
+     */
     private final String filePath;
 
     /**
      *
-     * */
+     */
     private Thread worker;
 
     /**
@@ -41,7 +41,7 @@ public class Downloader extends BaseConnection implements Runnable {
     /**
      * The percentage progress of the file download.
      */
-    private float progress;
+    private float progress = 0;
 
     /**
      * The MD5 Signature of the file download, which will be used to
@@ -52,26 +52,24 @@ public class Downloader extends BaseConnection implements Runnable {
 
     /**
      *
-     * */
-    private DownloaderStatus status;
+     */
+    private DownloaderStatus status = DownloaderStatus.NOT_STARTED;
 
 
     /**
      *
-     * */
+     */
     public Downloader(String host, int port, JsonNode info) {
         super(host, port);
 
-        this.status = DownloaderStatus.NOT_STARTED;
         this.filePath = info.get("file").asText();
         this.size = info.get("size").asLong();
         this.digest = Base64.getDecoder().decode(info.get("digest").asText());
-        this.progress = 0;
     }
 
     /**
      *
-     * */
+     */
     public void start() {
         worker = new Thread(this);
         worker.start();
@@ -79,14 +77,7 @@ public class Downloader extends BaseConnection implements Runnable {
 
     /**
      *
-     * */
-    public boolean isRunning() {
-        return this.running.get();
-    }
-
-    /**
-     *
-     * */
+     */
     public void stop() {
         running.set(false);
         worker.interrupt();
@@ -94,7 +85,7 @@ public class Downloader extends BaseConnection implements Runnable {
 
     /**
      *
-     * */
+     */
     @Override
     public void run() {
         super.run();
@@ -102,7 +93,7 @@ public class Downloader extends BaseConnection implements Runnable {
         this.running.set(true);
         this.status = DownloaderStatus.STARTED;
 
-        Path filePath = getFreePathForResource();
+        Path filePath = getPathForResource();
 
         // hold a signature of the 'local' file version
         byte[] localDigest = new byte[]{};
@@ -111,8 +102,6 @@ public class Downloader extends BaseConnection implements Runnable {
         // has the same signature as the 'remote' version. Note that if the 'remote'
         // version of file changes, we have to account for this problem and hence
         // we should check for a digest mis-match every time.
-
-
         try {
             while (!Arrays.equals(this.digest, localDigest) && this.running.get()) {
                 super.outputStream.printf("%s %s%n", Command.Download, this.filePath);
@@ -153,7 +142,7 @@ public class Downloader extends BaseConnection implements Runnable {
 
     /**
      *
-     * */
+     */
     private File downloadFile(String to) throws IOException {
         // @Consider: This is a dangerous operation since anyone could attempt
         //            to download a file that is larger than 2GB or 2^31 -1 bytes
@@ -193,43 +182,37 @@ public class Downloader extends BaseConnection implements Runnable {
 
     /**
      *
-     *
-     * */
-    // fixme: bug where by instead of incrementing a suffix, a new suffix is added to the old
-    private Path getFreePathForResource() {
+     */
+    private Path getPathForResource() {
         // create an output stream for the file in the 'downloads' folder.
-        var fileOutputURI = Paths.get(BaseConnection.config.get("download"), Path.of(this.filePath).getFileName().toString()).toAbsolutePath();
+        var originalFileOutputUri = Paths.get(BaseConnection.config.get("download"), Path.of(this.filePath).getFileName().toString());
+        var fileOutputURI = originalFileOutputUri;
 
         // check if the file already exists on our side, otherwise attempt to add a suffix
         // thus avoiding cancelling the operation.
         var count = 1;
 
-        do {
-            if (fileOutputURI.toFile().exists()) {
-                var sepIndex = fileOutputURI.toString().lastIndexOf('.');
+        while (fileOutputURI.toFile().exists()) {
+            var sepIndex = originalFileOutputUri.toString().lastIndexOf('.');
 
-                // file doesn't have an extension
-                if (sepIndex == -1) {
-                    fileOutputURI = Path.of(String.format("%s (%s)", fileOutputURI.toString(), count));
-                } else {
-                    var basename = fileOutputURI.toString().substring(0, sepIndex);
-                    var extension = fileOutputURI.toString().substring(sepIndex + 1);
-
-                    fileOutputURI = Path.of(String.format("%s (%s).%s", basename, count, extension));
-                }
-                count++;
+            // file doesn't have an extension
+            if (sepIndex == -1) {
+                fileOutputURI = Path.of(String.format("%s (%s)", originalFileOutputUri, count));
             } else {
-                break;
+                var basename = originalFileOutputUri.toString().substring(0, sepIndex);
+                var extension = originalFileOutputUri.toString().substring(sepIndex + 1);
+
+                fileOutputURI = Path.of(String.format("%s (%s).%s", basename, count, extension));
             }
-        } while (true);
+            count++;
+        }
 
         return fileOutputURI;
     }
 
     /**
      *
-     *
-     * */
+     */
     public String getProgressString() {
         String arrowIndicator = "=".repeat((int) (this.progress / 5)) + ">";
 

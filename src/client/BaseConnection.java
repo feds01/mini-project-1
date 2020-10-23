@@ -63,7 +63,6 @@ public class BaseConnection {
             this.socket.setSoTimeout(CONNECTION_TIMEOUT);
 
             this.inputStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
             this.outputStream = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
 
         } catch (UnknownHostException | ConnectException e) {
