@@ -1,23 +1,33 @@
 package client;
 
 
+import com.fasterxml.jackson.databind.JsonNode;
 import common.resources.FileEntry;
+import server.protocol.Command;
 
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Base64;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Downloader extends BaseConnection implements Runnable {
     private final String filePath;
 
+    private Thread worker;
+
+    /**
+     * Variable to hold the running status of the server. This variable must be atomic
+     * since the server instance can be accessed within multiple threads.
+     */
+    private final AtomicBoolean running = new AtomicBoolean(false);
+
+
     /**
      * The size of the file download in bytes
      */
-    private long size;
+    private final long size;
 
     /**
      * The percentage progress of the file download.
@@ -29,39 +39,55 @@ public class Downloader extends BaseConnection implements Runnable {
      * ensure that the file was successfully downloaded and it isn't
      * missing any content.
      */
-    private byte[] digest;
+    private final byte[] digest;
     private DownloaderStatus status;
 
 
-    public Downloader(String host, int port, String filePath, long size, byte[] digest) {
+    public Downloader(String host, int port, JsonNode info) {
         super(host, port);
 
         this.status = DownloaderStatus.NOT_STARTED;
-        this.filePath = filePath;
-        this.size = size;
-        this.digest = digest;
+        this.filePath = info.get("file").asText();
+        this.size = info.get("size").asLong();
+        this.digest = Base64.getDecoder().decode(info.get("digest").asText());
         this.progress = 0;
+    }
 
+    public void start() {
+        worker = new Thread(this);
+        worker.start();
+    }
+
+    public boolean isRunning() {
+        return this.running.get();
+    }
+
+    public void stop() {
+        running.set(false);
+        worker.interrupt();
     }
 
     @Override
     public void run() {
         super.run();
 
+        this.running.set(true);
         this.status = DownloaderStatus.STARTED;
 
         Path filePath = getFreePathForResource();
 
         // hold a signature of the 'local' file version
-        byte[] localDigest = null;
+        byte[] localDigest = new byte[]{};
 
         // Keep downloading the file until we can be sure that the 'local' version
         // has the same signature as the 'remote' version. Note that if the 'remote'
         // version of file changes, we have to account for this problem and hence
         // we should check for a digest mis-match every time.
+
+
         try {
-            while (!Arrays.equals(this.digest, localDigest)) {
-                // TODO we will need to make a request to the server in the form 'download <resource>'
+            while (!Arrays.equals(this.digest, localDigest) && this.running.get()) {
+                super.outputStream.printf("%s %s%n", Command.Download, this.filePath);
 
                 // Download the file using the function
                 var file = downloadFile(filePath.toString());
@@ -81,6 +107,8 @@ public class Downloader extends BaseConnection implements Runnable {
             this.status = DownloaderStatus.FINISHED;
         } catch (IOException e) {
 
+            e.printStackTrace();
+
             // We might have to delete any leftover resources that we're left by
             // writing an incomplete version of the file..
             boolean deleted = filePath.toFile().delete();
@@ -93,26 +121,6 @@ public class Downloader extends BaseConnection implements Runnable {
         } finally {
             super.cleanup();
         }
-    }
-
-    public String getFilePath() {
-        return filePath;
-    }
-
-    public byte[] getDigest() {
-        return digest;
-    }
-
-    public long getSize() {
-        return size;
-    }
-
-    public void setSize(long size) {
-        this.size = size;
-    }
-
-    public void setDigest(byte[] digest) {
-        this.digest = digest;
     }
 
     private File downloadFile(String to) throws IOException {
@@ -130,25 +138,21 @@ public class Downloader extends BaseConnection implements Runnable {
         try (
                 var fileOutputStream = new FileOutputStream(file);
                 var bufferedOutputStream = new BufferedOutputStream(fileOutputStream);
-                var inputStream = super.socket.getInputStream()
         ) {
+
+            // Again, probably better to store these objects references in the support class
+            DataInputStream dis = new DataInputStream(super.socket.getInputStream());
+
             int current = 0;
-            int bytesRead;
 
-            do {
-                bytesRead = inputStream.read(fileBuffer, current, (fileBuffer.length - current));
+            while (current < (int) this.size) {
+                fileBuffer[current++] = dis.readByte();
 
-                if (bytesRead >= 0) {
-                    current += bytesRead;
-
-                    // compute the progress as a percentage...
-                    this.progress = (float) (current / this.size) * 100;
-
-                }
-            } while (bytesRead > -1);
+                this.progress = ((float) current / this.size) * 100f;
+            }
 
             // finally, write it to the output stream...
-            bufferedOutputStream.write(fileBuffer, 0, current);
+            bufferedOutputStream.write(fileBuffer, 0, (int) this.size);
             bufferedOutputStream.flush();
         }
 
@@ -193,7 +197,7 @@ public class Downloader extends BaseConnection implements Runnable {
     public String getProgressString() {
         String arrowIndicator = "=".repeat((int) (this.progress / 5)) + ">";
 
-        return String.format("[%-21s] %s%% %4s", arrowIndicator, this.progress, this.filePath);
+        return String.format("[%-21s] %s%% %4s with status %s", arrowIndicator, this.progress, this.filePath, this.status);
     }
 
     public DownloaderStatus getStatus() {

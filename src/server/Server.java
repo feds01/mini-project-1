@@ -103,7 +103,7 @@ public class Server implements Runnable {
             // listen for client connection requests on this server socket
             this.serverSocket = new ServerSocket(port);
 
-            System.out.printf("File server listening on %s...%n", port);
+            System.out.printf("File server listening on 127.0.0.1:%s...%n", port);
             this.startSignal.countDown();
 
             while (this.running.get()) {

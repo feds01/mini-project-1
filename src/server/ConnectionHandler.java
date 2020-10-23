@@ -15,7 +15,6 @@ import java.net.Socket;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -29,7 +28,6 @@ public class ConnectionHandler extends Thread {
     private final Socket connection;
     private InputStream inputStream;
     private PrintWriter outputStream;
-    private OutputStream fileOutputStream;
     private BufferedReader reader;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -39,7 +37,6 @@ public class ConnectionHandler extends Thread {
 
         try {
             this.inputStream = connection.getInputStream();
-            this.fileOutputStream = connection.getOutputStream();
             this.outputStream = new PrintWriter(connection.getOutputStream(), true);
             this.reader = new BufferedReader(new InputStreamReader(this.inputStream));
 
@@ -122,13 +119,15 @@ public class ConnectionHandler extends Thread {
                 case Download: {
                     response = getFileMetadata(request[1]);
 
-
                     if (response.get("status").asBoolean()) {
                         var file = new File(String.valueOf(Paths.get(config.get("upload"), request[1])));
+                        var out = new DataOutputStream(this.connection.getOutputStream());
 
-                        String encodedFile = Base64.getEncoder().encodeToString(this.loadFile(file.toPath()));
+                        var fileBuffer = this.loadFile(file.toPath());
 
-                        outputStream.write(encodedFile);
+                        out.write(fileBuffer, 0, fileBuffer.length);
+                        out.flush();
+                        out.close();
 
                         // skip writing the response object to outputStream since we're only
                         // responding with the file.
@@ -175,7 +174,9 @@ public class ConnectionHandler extends Thread {
         // compute the size and md5 hash of the file, send the parameters to
         // the requester as specified by the protocol...
         var fileLoader = new FileEntry(Path.of(file.getAbsolutePath()));
+        fileLoader.load();
 
+        response.put("file", String.valueOf(fileLoader.getPath().getFileName()));
         response.put("digest", fileLoader.getDigest());
         response.put("size", fileLoader.getSize());
         response.put("message", "Getting file...");
@@ -189,18 +190,7 @@ public class ConnectionHandler extends Thread {
         var loader = new FileEntry(fileName);
         loader.load();
 
-        var fileStream = new BufferedInputStream(loader.getFileStream());
-
-        // @Cleanup: potential unsafe cast, what if the file is larger than 2GB
-        byte[] buffer = new byte[(int) loader.getSize()];
-
-        try {
-            fileStream.read(buffer, 0, buffer.length);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return buffer;
+        return loader.getFileBuffer();
     }
 
     /**

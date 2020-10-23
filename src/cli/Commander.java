@@ -87,7 +87,6 @@ public class Commander {
                     return e.getMessage();
                 }
             }
-
             case "list": {
                 if (this.client == null) {
                     return "Not connected to any peer.";
@@ -134,6 +133,17 @@ public class Commander {
                     }
 
                     // TODO: spin up a downloader instance and start downloading!
+                    var downloader = new Downloader(
+                            this.client.getHost(), this.client.getPort(),
+                            response
+                    );
+
+                    // append the downloader thread to our downloader list
+                    this.downloads.add(downloader);
+
+                    // start downloader thread
+                    downloader.start();
+
                     break;
                 } else {
                     // the response always returns the status of the request that can be used to
@@ -144,15 +154,18 @@ public class Commander {
 
                 break;
             }
-
             // Command to print the working status of any on-going downloads that are occurring.
             case "status": {
+                for (var download : this.downloads) {
+                    System.out.println(download.getProgressString());
+                }
+
                 if (this.downloads.size() == 0) {
                     return "No active downloads.";
                 }
 
+                break;
             }
-
             case "help": {
                 // print out help stuff
                 System.out.println("help text");

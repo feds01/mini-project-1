@@ -1,6 +1,8 @@
 package common.resources;
 
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -8,26 +10,36 @@ import java.security.NoSuchAlgorithmException;
 
 public class FileEntry implements IEntry {
     private final Path path;
-    private FileInputStream fileStream;
     private byte[] digest;
     private long size;
-
+    private ByteArrayOutputStream fileBuffer;
 
     public FileEntry(Path path) {
         this.path = path;
     }
 
     public void load() {
-        try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
+        this.fileBuffer = new ByteArrayOutputStream();
 
-            this.fileStream = new FileInputStream(String.valueOf(path));
-
-            md.update(this.fileStream.readAllBytes());
+        try (
+                var fileStream = new FileInputStream(String.valueOf(path));
+        ) {
+            var md = MessageDigest.getInstance("MD5");
+            byte[] buffer = new byte[1024];
+            int numRead;
 
             // Update our digest with the processed digest of the file stream.
+            do {
+                numRead = fileStream.read(buffer);
+                if (numRead > 0) {
+                    fileBuffer.write(buffer);
+                }
+            } while (numRead != -1);
+
+            md.update(fileBuffer.toByteArray());
+
             this.digest = md.digest();
-            this.size = this.fileStream.getChannel().size();
+            this.size = fileBuffer.size();
 
 
         } catch (IOException | NoSuchAlgorithmException e) {
@@ -43,8 +55,18 @@ public class FileEntry implements IEntry {
         return this.size;
     }
 
+    public byte[] getFileBuffer() {
+        return fileBuffer.toByteArray();
+    }
+
     public FileInputStream getFileStream() {
-        return this.fileStream;
+        try {
+            return new FileInputStream(String.valueOf(path));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 
     @Override
