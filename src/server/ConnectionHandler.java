@@ -5,9 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import common.Configuration;
 import common.DisconnectedException;
 import server.protocol.Command;
-import server.resources.DirectoryEntry;
-import server.resources.FileEntry;
-import server.resources.IEntry;
+import common.resources.DirectoryEntry;
+import common.resources.FileEntry;
+import common.resources.IEntry;
 
 import java.io.*;
 import java.net.Socket;
@@ -23,6 +23,7 @@ public class ConnectionHandler extends Thread {
 
     private final Configuration config = Configuration.getInstance();
 
+
     private final Socket connection;
     private InputStream inputStream;
     private PrintWriter outputStream;
@@ -35,7 +36,7 @@ public class ConnectionHandler extends Thread {
 
         try {
             this.inputStream = connection.getInputStream();
-            this.outputStream = new PrintWriter(connection.getOutputStream());
+            this.outputStream = new PrintWriter(connection.getOutputStream(), true);
             this.reader = new BufferedReader(new InputStreamReader(this.inputStream));
 
         } catch (IOException e) {
@@ -149,7 +150,6 @@ public class ConnectionHandler extends Thread {
 
             // Finally, convert the response into a byte array and send it to the client.
             outputStream.println(mapper.writeValueAsString(response));
-            outputStream.flush();
         }
 
         // Invoke the clean-up function after the listener finishes it's work, or gets

@@ -1,4 +1,4 @@
-package server.resources;
+package common.resources;
 
 public enum EntryType {
     FILE,

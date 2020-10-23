@@ -7,17 +7,11 @@ import java.nio.file.Paths;
 import java.util.Properties;
 
 public class Configuration {
-    public static final String exitString = "exit";
-    public static final byte ackByte = -1;
-
-
     private Properties properties;
-
     private static final Configuration instance = new Configuration();
 
 
     private Configuration() {
-
         try (var input = this.getClass().getClassLoader().getResourceAsStream("config.properties")) {
             this.properties = new Properties();
 
@@ -30,7 +24,6 @@ public class Configuration {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
     public static Configuration getInstance() {

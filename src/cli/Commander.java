@@ -1,5 +1,6 @@
 package cli;
 
+import cli.printers.ResourceList;
 import client.Client;
 import client.Downloader;
 import common.Configuration;

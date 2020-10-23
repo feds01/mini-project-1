@@ -1,4 +1,4 @@
-package cli;
+package cli.printers;
 
 import com.fasterxml.jackson.databind.JsonNode;
 

@@ -1,4 +1,4 @@
-package server.resources;
+package common.resources;
 
 import java.nio.file.Path;
 
