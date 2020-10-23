@@ -8,7 +8,7 @@ import common.DisconnectedException;
 import common.resources.DirectoryEntry;
 import common.resources.FileEntry;
 import common.resources.IEntry;
-import server.protocol.Command;
+import common.protocol.Command;
 
 import java.io.*;
 import java.net.Socket;
@@ -73,10 +73,8 @@ public class ConnectionHandler extends Thread {
 
             // if readLine fails we can deduce here that the connection to the client is broken
             // and shut down the connection on this side cleanly by throwing a common.DisconnectedException
-            // which will be passed up the call stack to the nearest handler (catch block)
-            // in the run method
             if (command == null) {
-                throw new DisconnectedException(" ... client has closed the connection ... ");
+                throw new DisconnectedException("Connection closed.");
             }
 
             // create an initial json object that will be used as a response.
@@ -113,11 +111,14 @@ public class ConnectionHandler extends Thread {
                     break;
                 }
                 case Get: {
-                    response = getFileMetadata(request[1]);
+                    var filePath = request.length > 1 ? request[1] : null;
+                    response = getFileMetadata(filePath);
+
                     break;
                 }
                 case Download: {
-                    response = getFileMetadata(request[1]);
+                    var filePath = request.length > 1 ? request[1] : null;
+                    response = getFileMetadata(filePath);
 
                     if (response.get("status").asBoolean()) {
                         var file = new File(String.valueOf(Paths.get(config.get("upload"), request[1])));

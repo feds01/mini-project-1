@@ -3,7 +3,7 @@ package client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import common.resources.FileEntry;
-import server.protocol.Command;
+import common.protocol.Command;
 
 import java.io.*;
 import java.nio.file.Path;
@@ -12,9 +12,18 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ *
+ * */
 public class Downloader extends BaseConnection implements Runnable {
+    /**
+     *
+     * */
     private final String filePath;
 
+    /**
+     *
+     * */
     private Thread worker;
 
     /**
@@ -40,9 +49,16 @@ public class Downloader extends BaseConnection implements Runnable {
      * missing any content.
      */
     private final byte[] digest;
+
+    /**
+     *
+     * */
     private DownloaderStatus status;
 
 
+    /**
+     *
+     * */
     public Downloader(String host, int port, JsonNode info) {
         super(host, port);
 
@@ -53,20 +69,32 @@ public class Downloader extends BaseConnection implements Runnable {
         this.progress = 0;
     }
 
+    /**
+     *
+     * */
     public void start() {
         worker = new Thread(this);
         worker.start();
     }
 
+    /**
+     *
+     * */
     public boolean isRunning() {
         return this.running.get();
     }
 
+    /**
+     *
+     * */
     public void stop() {
         running.set(false);
         worker.interrupt();
     }
 
+    /**
+     *
+     * */
     @Override
     public void run() {
         super.run();
@@ -123,6 +151,9 @@ public class Downloader extends BaseConnection implements Runnable {
         }
     }
 
+    /**
+     *
+     * */
     private File downloadFile(String to) throws IOException {
         // @Consider: This is a dangerous operation since anyone could attempt
         //            to download a file that is larger than 2GB or 2^31 -1 bytes
@@ -160,6 +191,11 @@ public class Downloader extends BaseConnection implements Runnable {
     }
 
 
+    /**
+     *
+     *
+     * */
+    // fixme: bug where by instead of incrementing a suffix, a new suffix is added to the old
     private Path getFreePathForResource() {
         // create an output stream for the file in the 'downloads' folder.
         var fileOutputURI = Paths.get(BaseConnection.config.get("download"), Path.of(this.filePath).getFileName().toString()).toAbsolutePath();
@@ -190,14 +226,14 @@ public class Downloader extends BaseConnection implements Runnable {
         return fileOutputURI;
     }
 
-    public float getProgress() {
-        return progress;
-    }
-
+    /**
+     *
+     *
+     * */
     public String getProgressString() {
         String arrowIndicator = "=".repeat((int) (this.progress / 5)) + ">";
 
-        return String.format("[%-21s] %s%% %4s with status %s", arrowIndicator, this.progress, this.filePath, this.status);
+        return String.format("[%-21s] %.2f%% %4s with status %s", arrowIndicator, this.progress, this.filePath, this.status);
     }
 
     public DownloaderStatus getStatus() {

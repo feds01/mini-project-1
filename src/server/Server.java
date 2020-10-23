@@ -2,10 +2,9 @@ package server;
 
 
 import com.fasterxml.jackson.databind.JsonNode;
-import server.protocol.Command;
+import common.protocol.Command;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -19,10 +18,29 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ *
+ * */
 public class Server implements Runnable {
+
+    /**
+     *
+     * */
     private final int port;
+
+    /**
+     *
+     * */
     private Thread worker;
+
+    /**
+     *
+     * */
     private ServerSocket serverSocket;
+
+    /**
+     *
+     * */
     private final CountDownLatch startSignal;
 
     /**
@@ -42,6 +60,9 @@ public class Server implements Runnable {
      * */
     Map<InetAddress, ConnectionHandler> connections;
 
+    /**
+     *
+     * */
     final Runnable queryTask = new Runnable() {
         @Override
         public void run() {
@@ -57,6 +78,9 @@ public class Server implements Runnable {
         }
     };
 
+    /**
+     *
+     * */
     public Server(int port) {
         this.port = port;
         this.connections = new HashMap<>();
@@ -66,23 +90,38 @@ public class Server implements Runnable {
 
     }
 
+    /**
+     *
+     * */
     public CountDownLatch getStartSignal() {
         return this.startSignal;
     }
 
+    /**
+     *
+     * */
     public void start() {
         worker = new Thread(this);
         worker.start();
     }
 
+    /**
+     *
+     * */
     public boolean isRunning() {
         return this.running.get();
     }
 
+    /**
+     *
+     * */
     public void stop() {
         running.set(false);
     }
 
+    /**
+     *
+     * */
     public void run() {
         Thread.currentThread().setName("server.Server");
 
@@ -118,11 +157,17 @@ public class Server implements Runnable {
         }
     }
 
+    /**
+     *
+     * */
     public List<ConnectionHandler> getConnections() {
         return new ArrayList<>(this.connections.values());
     }
 
 
+    /**
+     *
+     * */
     private void addConnection(Socket socket) {
 
         // create new handler for this connection

@@ -1,6 +1,9 @@
-package server.protocol;
+package common.protocol;
 
 
+/**
+ *
+ * */
 public enum Command {
     Get,
     List,

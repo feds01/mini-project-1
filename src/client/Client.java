@@ -3,7 +3,7 @@ package client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import common.DisconnectedException;
-import server.protocol.Command;
+import common.protocol.Command;
 
 import java.io.*;
 import java.net.*;

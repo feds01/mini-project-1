@@ -5,7 +5,14 @@ import server.Server;
 
 import java.util.Scanner;
 
+/**
+ *
+ * */
 public class FileShareMain {
+
+    /**
+     *
+     * */
     public static void main(String[] args) {
         var config = Configuration.getInstance();
 

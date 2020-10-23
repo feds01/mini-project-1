@@ -6,11 +6,23 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Properties;
 
+/**
+ *
+ * */
 public class Configuration {
+    /**
+     *
+     * */
     private Properties properties;
+
+    /**
+     *
+     * */
     private static final Configuration instance = new Configuration();
 
-
+    /**
+     *
+     * */
     private Configuration() {
         try (var input = this.getClass().getClassLoader().getResourceAsStream("config.properties")) {
             this.properties = new Properties();
@@ -26,10 +38,16 @@ public class Configuration {
         }
     }
 
+    /**
+     *
+     * */
     public static Configuration getInstance() {
         return instance;
     }
 
+    /**
+     *
+     * */
     public String get(String key) {
         if (!this.properties.containsKey(key)) {
             throw new IllegalArgumentException("Cannot access configuration property that doesn't exist.");
@@ -38,6 +56,9 @@ public class Configuration {
         return this.properties.getProperty(key);
     }
 
+    /**
+     *
+     * */
     public void set(String key, String value) {
         if (!this.properties.containsKey(key)) {
             throw new IllegalArgumentException("Cannot access configuration property that doesn't exist.");

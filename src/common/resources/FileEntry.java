@@ -8,16 +8,40 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+/**
+ *
+ * */
 public class FileEntry implements IEntry {
+    /**
+     *
+     * */
     private final Path path;
+
+    /**
+     *
+     * */
     private byte[] digest;
+
+    /**
+     *
+     * */
     private long size;
+
+    /**
+     *
+     * */
     private ByteArrayOutputStream fileBuffer;
 
+    /**
+     *
+     * */
     public FileEntry(Path path) {
         this.path = path;
     }
 
+    /**
+     *
+     * */
     public void load() {
         this.fileBuffer = new ByteArrayOutputStream();
 
@@ -47,33 +71,39 @@ public class FileEntry implements IEntry {
         }
     }
 
+    /**
+     *
+     * */
     public byte[] getDigest() {
         return this.digest;
     }
 
+    /**
+     *
+     * */
     public long getSize() {
         return this.size;
     }
 
+    /**
+     *
+     * */
     public byte[] getFileBuffer() {
         return fileBuffer.toByteArray();
     }
 
-    public FileInputStream getFileStream() {
-        try {
-            return new FileInputStream(String.valueOf(path));
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
 
-        return null;
-    }
-
+    /**
+     *
+     * */
     @Override
     public EntryType getType() {
         return EntryType.FILE;
     }
 
+    /**
+     *
+     * */
     public Path getPath() {
         return this.path;
     }

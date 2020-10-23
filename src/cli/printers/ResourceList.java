@@ -8,9 +8,18 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+/**
+ *
+ * */
 public class ResourceList {
+    /**
+     *
+     * */
     private final List<JsonNode> fileList;
 
+    /**
+     *
+     * */
     public ResourceList(JsonNode response) {
         var listNode = response.get("files");
 
@@ -22,7 +31,17 @@ public class ResourceList {
                 .collect(Collectors.toList());
     }
 
+    /**
+     *
+     * */
     public void print() {
+
+        // Don't attempt to build a resource table if there are no resources
+        if (this.fileList.size() == 0) {
+            System.out.println("No files");
+            return;
+        }
+
         var longestType = this.getLongestMember("type");
         var longestPath = this.getLongestMember("path");
 
@@ -45,10 +64,16 @@ public class ResourceList {
 
     }
 
+    /**
+     *
+     * */
     private String getRow(int length) {
         return "-".repeat(length);
     }
 
+    /**
+     *
+     * */
     private String getLongestMember(String fieldName) {
         return Collections.max(fileList.stream().map(item -> item.get(fieldName).asText())
                 .collect(Collectors.toList()), Comparator.comparing(String::length));

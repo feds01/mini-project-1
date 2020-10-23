@@ -6,7 +6,7 @@ import client.Downloader;
 import common.Configuration;
 import common.Networking;
 import server.Server;
-import server.protocol.Command;
+import common.protocol.Command;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -132,17 +132,16 @@ public class Commander {
                         return "No enough space on download folder drive to download file.";
                     }
 
-                    // TODO: spin up a downloader instance and start downloading!
+                    // spin up a downloader instance and start downloading the resource.
                     var downloader = new Downloader(
                             this.client.getHost(), this.client.getPort(),
                             response
                     );
 
+                    downloader.start();
+
                     // append the downloader thread to our downloader list
                     this.downloads.add(downloader);
-
-                    // start downloader thread
-                    downloader.start();
 
                     break;
                 } else {
@@ -156,6 +155,8 @@ public class Commander {
             }
             // Command to print the working status of any on-going downloads that are occurring.
             case "status": {
+
+                // TODO: check here if we need to clean up any threads that have finished executing.
                 for (var download : this.downloads) {
                     System.out.println(download.getProgressString());
                 }

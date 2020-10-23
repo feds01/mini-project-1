@@ -7,21 +7,56 @@ import java.net.ConnectException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
+/**
+ *
+ * */
 public class BaseConnection {
+    /**
+     *
+     * */
     public final static int CONNECTION_TIMEOUT = 5000;
+
+    /**
+     *
+     * */
     public final static Configuration config = Configuration.getInstance();
 
+    /**
+     *
+     * */
     protected Socket socket;
+
+    /**
+     *
+     * */
     protected final int port;
+
+    /**
+     *
+     * */
     protected final String host;
+
+    /**
+     *
+     * */
     protected PrintWriter outputStream;
+
+    /**
+     *
+     * */
     protected BufferedReader inputStream;
 
+    /**
+     *
+     * */
     public BaseConnection(String host, int port) {
         this.host = host;
         this.port = port;
     }
 
+    /**
+     *
+     * */
     public void run() {
         try {
             this.socket = new Socket(this.host, port);
@@ -41,6 +76,9 @@ public class BaseConnection {
         }
     }
 
+    /**
+     *
+     * */
     public void cleanup() {
         try {
             if (inputStream != null) inputStream.close();
@@ -51,10 +89,16 @@ public class BaseConnection {
         }
     }
 
+    /**
+     *
+     * */
     public int getPort() {
         return port;
     }
 
+    /**
+     *
+     * */
     public String getHost() {
         return host;
     }

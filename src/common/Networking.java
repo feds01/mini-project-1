@@ -8,6 +8,9 @@ import java.util.regex.Pattern;
 public class Networking {
 
     // https://stackoverflow.com/a/2675416/9955666
+    /**
+     *
+     * */
     public static int getFreePort() {
         int port = 0;
 
@@ -27,6 +30,9 @@ public class Networking {
         return port;
     }
 
+    /**
+     *
+     * */
     public static InetSocketAddress parseAddressFromString(String address) {
         var pattern = Pattern.compile("(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}):(\\d+)");
         var matcher = pattern.matcher(address);
