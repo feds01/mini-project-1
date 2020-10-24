@@ -1,6 +1,5 @@
 package client;
 
-
 import com.fasterxml.jackson.databind.JsonNode;
 import common.protocol.Command;
 import common.resources.FileEntry;
@@ -219,7 +218,34 @@ public class Downloader extends BaseConnection implements Runnable {
         return String.format("[%-21s] %.2f%% %4s with status %s", arrowIndicator, this.progress, this.filePath, this.status);
     }
 
+
+    /**
+     * Method used to access the current state of the download thread.
+     *
+     * @return The current status of the download.
+     */
     public DownloaderStatus getStatus() {
         return status;
+    }
+
+    /**
+     *
+     */
+    @Override
+    public void cleanup() {
+        super.cleanup();
+
+        // if the file didn't finish downloading, we need to remove it from the filesystem
+        var file = Path.of(filePath).toFile();
+
+        if (file.exists() && !this.status.equals(DownloaderStatus.FINISHED)) {
+            // We might have to delete any leftover resources that we're left by
+            // writing an incomplete version of the file..
+            boolean deleted = Path.of(filePath).toFile().delete();
+
+            if (!deleted) {
+                System.err.println("Oops! Couldn't cleanup download.");
+            }
+        }
     }
 }

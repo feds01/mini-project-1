@@ -39,7 +39,6 @@ public class Client extends BaseConnection {
             var content = super.inputStream.readLine();
 
             response = mapper.readTree(content);
-
         } catch (SocketException e) {
             // When the stream throws a SocketException, this means that server
             // unexpectedly severed our connection. This could mean that the server

@@ -1,17 +1,12 @@
 package server;
 
 
-import com.fasterxml.jackson.databind.JsonNode;
-import common.protocol.Command;
-
 import java.io.IOException;
-import java.net.InetAddress;
+import java.net.BindException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -20,86 +15,78 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  *
- * */
+ */
 public class Server implements Runnable {
 
     /**
      *
-     * */
+     */
     private final int port;
 
     /**
      *
-     * */
+     */
     private Thread worker;
 
     /**
      *
-     * */
+     */
     private ServerSocket serverSocket;
 
     /**
      *
-     * */
-    private final CountDownLatch startSignal;
+     */
+    private final CountDownLatch startSignal = new CountDownLatch(1);
 
     /**
      * Variable to hold the running status of the server. This variable must be atomic
      * since the server instance can be accessed within multiple threads.
-     * */
+     */
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     /**
      * Our scheduler instance that will query all of our 'known' peers for their
      * information on their known peers.
-     * */
-    private final ScheduledExecutorService scheduler;
+     */
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     /**
      * A list of ConnectionHandlers that the server shepherds over.
-     * */
-    Map<InetAddress, ConnectionHandler> connections;
+     */
+    List<ConnectionHandler> connections = new ArrayList<>();
 
     /**
      *
-     * */
-    final Runnable queryTask = new Runnable() {
-        @Override
-        public void run() {
-            List<JsonNode> responses = new ArrayList<>();
+     */
+    final Runnable clearerTask = () -> {
+        List<ConnectionHandler> deadConnections = new ArrayList<>();
 
-            for (var connection : connections.values()) {
-                var response = connection.sendCommand(Command.Peers);
-
-                responses.add(response);
+        for (var connection : connections) {
+            if (!connection.isAlive()) {
+                deadConnections.add(connection);
             }
-
-            // TODO: do some logic with these responses.
         }
+
+        this.connections.removeAll(deadConnections);
     };
 
     /**
      *
-     * */
+     */
     public Server(int port) {
         this.port = port;
-        this.connections = new HashMap<>();
-        this.startSignal = new CountDownLatch(1);
-
-        this.scheduler = Executors.newScheduledThreadPool(1);
-
     }
 
     /**
      *
-     * */
+     */
     public CountDownLatch getStartSignal() {
         return this.startSignal;
     }
 
     /**
      *
-     * */
+     */
     public void start() {
         worker = new Thread(this);
         worker.start();
@@ -107,23 +94,23 @@ public class Server implements Runnable {
 
     /**
      *
-     * */
+     */
     public boolean isRunning() {
         return this.running.get();
     }
 
     /**
      *
-     * */
+     */
     public void stop() {
         running.set(false);
     }
 
     /**
      *
-     * */
+     */
     public void run() {
-        Thread.currentThread().setName("server.Server");
+        Thread.currentThread().setName("Server");
 
         // Add a scheduled task to query all of our known peers for their
         // peer information. This is also used to check if some connections
@@ -131,7 +118,7 @@ public class Server implements Runnable {
         // instance that said connection is dead. By using a ScheduledExecutorService
         // task we can run a 'Runnable' instance every 60 seconds to send the
         // 'peers' command.
-        var handle = scheduler.scheduleAtFixedRate(queryTask, 2, 5, TimeUnit.SECONDS);
+        var handle = scheduler.scheduleWithFixedDelay(clearerTask, 2, 5, TimeUnit.SECONDS);
 
         scheduler.schedule((Runnable) () -> handle.cancel(true), 60, TimeUnit.SECONDS);
 
@@ -142,7 +129,7 @@ public class Server implements Runnable {
             // listen for client connection requests on this server socket
             this.serverSocket = new ServerSocket(port);
 
-            System.out.printf("File server listening on 127.0.0.1:%s...%n", port);
+            System.out.printf("File server listening on port %s...%n", port);
             this.startSignal.countDown();
 
             while (this.running.get()) {
@@ -151,30 +138,27 @@ public class Server implements Runnable {
                 this.addConnection(socket);
             }
         } catch (IOException e) {
-            System.out.println("File server shutting down...");
+            if (e instanceof BindException) {
+                System.out.printf("Port %s is in use, cannot start server.%n", port);
+            } else {
+                System.out.println("File server shutting down...");
+            }
         } finally {
             this.cleanup();
         }
     }
 
-    /**
-     *
-     * */
-    public List<ConnectionHandler> getConnections() {
-        return new ArrayList<>(this.connections.values());
-    }
-
 
     /**
      *
-     * */
+     */
     private void addConnection(Socket socket) {
 
         // create new handler for this connection
         var connection = new ConnectionHandler(socket);
         connection.start();
 
-        this.connections.put(socket.getInetAddress(), connection);
+        this.connections.add(connection);
     }
 
 
@@ -186,15 +170,15 @@ public class Server implements Runnable {
      *
      * If the server couldn't gracefully shutdown, the exception stack
      * trace is printed since this should be the exit point of the application.
-     * */
+     */
     private void cleanup() {
         try {
             // check if we need to close any pending connections.
-            if (this.connections.size() > 0) {
-                this.connections.values().forEach(ConnectionHandler::shutdown);
-            }
+            this.connections.forEach(ConnectionHandler::shutdown);
 
-            serverSocket.close();
+            if (serverSocket != null) {
+                serverSocket.close();
+            }
 
         } catch (IOException e) {
             System.out.println("File server couldn't shutdown gracefully.");

@@ -14,34 +14,64 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ *
+ * */
 public class Commander {
+    /**
+     *
+     * */
     private Server server;
+
+    /**
+     *
+     * */
     private Client client;
+
 
     private final Configuration config = Configuration.getInstance();
 
-    // This is an internal list of download instances that are being
-    // orchestrated by the server
+    /**
+     * This is an internal list of download instances that are being orchestrated by the server
+     * */
     private final List<Downloader> downloads = new ArrayList<>();
 
+    /**
+     *
+     * */
     private static final Commander instance = new Commander();
 
+    /**
+     *
+     * */
     private Commander() {
     }
 
+    /**
+     *
+     * */
     public static Commander getInstance() {
         return instance;
     }
 
 
+    /**
+     *
+     * */
     public void start() {
         System.out.print("> ");
     }
 
+    /**
+     *
+     * */
     public void setServer(Server server) {
         this.server = server;
     }
 
+    /**
+     *
+     * */
     public String pushCommand(String commandString) {
 
         // check if the given command is empty or just whitespaces, if so skip
@@ -187,5 +217,13 @@ public class Commander {
         }
 
         return "";
+    }
+
+
+    /**
+     *
+     * */
+    public Iterable<Downloader> getDownloads() {
+        return this.downloads;
     }
 }

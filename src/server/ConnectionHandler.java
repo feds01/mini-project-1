@@ -228,7 +228,9 @@ public class ConnectionHandler extends Thread {
         return files;
     }
 
-
+    /**
+     *
+     * */
     private void cleanup() {
         try {
             reader.close();
@@ -237,13 +239,5 @@ public class ConnectionHandler extends Thread {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    public JsonNode sendCommand(Command command) {
-        var response = mapper.createObjectNode();
-
-        // TODO: implement sending a command.
-
-        return response;
     }
 }
