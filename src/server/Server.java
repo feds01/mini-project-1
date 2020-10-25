@@ -106,7 +106,7 @@ public class Server implements Runnable {
 
         try {
             // Broadcast a message to the broadcast socket.
-            var buffer = mapper.writeValueAsBytes(commander.getKnownPeers());
+            var buffer = mapper.writeValueAsBytes(commander.getKnownPeers().values());
 
             var packet = new DatagramPacket(buffer, buffer.length, broadcastGroup, Configuration.MULTICAST_PORT);
 

@@ -186,7 +186,7 @@ public class Commander {
 
                 break;
             }
-            case "search": {
+            case "peers": {
                 this.knownPeers.values().forEach((item) -> System.out.println(item.toString()));
                 break;
             }
@@ -194,6 +194,7 @@ public class Commander {
                 if (this.client == null) {
                     return "Not connected to any peer.";
                 }
+                //TODO: change the command syntax to get "..." or get '...', probably using a regex
 
                 // We'll first need to query the metadata on this file from the server.
                 // We need to get the size of the file to check that it will fit onto

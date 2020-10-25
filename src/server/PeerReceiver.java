@@ -2,7 +2,9 @@ package server;
 
 import cli.Commander;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import common.Configuration;
 
 import java.io.IOException;
@@ -51,6 +53,8 @@ public class PeerReceiver extends Thread {
 
     /**
      * Buffer that's used to store the datagram packet data
+     *
+     * @implNote Consider that the packet size could be larger than this buffer size.
      */
     protected byte[] buffer = new byte[1024];
 
@@ -97,10 +101,14 @@ public class PeerReceiver extends Thread {
                 // Deserialize the sent over array of peer objects into a list of peer
                 // objects that can be added into the list of known peers that the commander
                 // object holds a reference of...
-                List<Peer> response = mapper.readValue(packet.getData(), new TypeReference<>() {
-                });
+                try {
+                    List<Peer> response = mapper.readValue(packet.getData(), new TypeReference<>() {
+                    });
 
-                response.forEach(commander::addKnownPeer);
+                    response.forEach(commander::addKnownPeer);
+                } catch (MismatchedInputException e) {
+                    // Ignore the error since we can just skip that packet.
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();

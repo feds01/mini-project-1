@@ -64,8 +64,8 @@ public class FileShareMain {
             // boot up the commander for cli...
             var commander = Commander.getInstance();
 
-            commander.start();
             commander.setServer(server);
+            commander.start();
 
             while (scanner.hasNextLine()) {
                 var commandString = scanner.nextLine();
