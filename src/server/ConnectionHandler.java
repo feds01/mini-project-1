@@ -89,7 +89,7 @@ public class ConnectionHandler extends Thread {
             this.reader = new BufferedReader(new InputStreamReader(this.inputStream));
 
             this.listen();
-        } catch (IOException | DisconnectedException e) {
+        } catch (IOException | NullPointerException | DisconnectedException e) {
             this.cleanup();
         }
     }
@@ -120,7 +120,6 @@ public class ConnectionHandler extends Thread {
      */
     private void listen() throws DisconnectedException, IOException {
         while (this.running.get()) {
-
             // We expect to get the first argument as the name of the command that is being
             // invoked for the server to respond. Any further components of the request are
             // treated as arguments that complement the command. For example, if the requester
@@ -149,19 +148,29 @@ public class ConnectionHandler extends Thread {
                     var listArg = request.length > 1 ? request[1] : "";
 
                     // Iterate over the entry list and append the appropriate metadata on
-                    for (IEntry entry : this.getUploadFolderContents(listArg)) {
-                        var fileEntry = mapper.createObjectNode();
+                    try {
+                        for (IEntry entry : this.getUploadFolderContents(listArg)) {
+                            var fileEntry = mapper.createObjectNode();
 
 
-                        // append metadata about the objects in the
-                        fileEntry.put("type", entry.getType().toString());
-                        fileEntry.put("path", entry.getPath().getFileName().toString());
+                            // append metadata about the objects in the
+                            fileEntry.put("type", entry.getType().toString());
+                            fileEntry.put("path", entry.getPath().getFileName().toString());
 
-                        fileList.add(fileEntry);
+                            fileList.add(fileEntry);
+                            // set the data into the response.
+                            response.set("files", fileList);
+                        }
+
+                        response.put("status", true);
+                    } catch (FileNotFoundException e) {
+                        response.put("status", false);
+                        response.put("message", "Folder not found");
+                    } catch (IllegalArgumentException e) {
+                        response.put("status", false);
+                        response.put("message", "Path must a file");
                     }
 
-                    // set the data into the response.
-                    response.set("files", fileList);
                     break;
                 }
                 case Get: {

@@ -90,6 +90,12 @@ public class FileShareMain {
                 server.stop();
             }
 
+
+            // Shutdown the PeerReceiver if it's still running...
+            if (peerReceiver.isRunning()) {
+                peerReceiver.shutdown();
+            }
+
             // Clean-up any unfinished downloads that are currently active...
             commander.getDownloads().forEach(Downloader::cleanup);
         } catch (NumberFormatException e) {

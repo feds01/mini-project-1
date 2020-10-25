@@ -6,14 +6,17 @@ import client.Downloader;
 import client.DownloaderStatus;
 import common.Configuration;
 import common.Networking;
+import common.protocol.Command;
 import server.Peer;
 import server.Server;
-import common.protocol.Command;
 
 import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -21,11 +24,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * aspect of the application.
  *
  * @author 200008575
- * */
+ */
 public class Commander {
     /**
      * A reference to the server object
-     * */
+     */
     private Server server;
 
     /**
@@ -37,29 +40,29 @@ public class Commander {
     /**
      * Variable that holds the client object which commander uses to send
      * commands and receive data from the peer.
-     * */
+     */
     private Client client;
 
 
     /**
      * Instance of the configuration object which is used to get application settings.
-     * */
+     */
     private final Configuration config = Configuration.getInstance();
 
     /**
      * This is an internal list of download instances that are being orchestrated by the server
-     * */
+     */
     private final List<Downloader> downloads = new ArrayList<>();
 
     /**
      * Variable that holds the reference of this object that is used
      * when external callers need to access the commander.
-     * */
+     */
     private static final Commander instance = new Commander();
 
     /**
      * Commander instantiation method.
-     * */
+     */
     private Commander() {
     }
 
@@ -67,7 +70,7 @@ public class Commander {
      * Method to get an instance of the Commander object
      *
      * @return A reference of this object.
-     * */
+     */
     public static Commander getInstance() {
         return instance;
     }
@@ -79,7 +82,7 @@ public class Commander {
      * peer.
      *
      * @throws UnknownHostException if the method failed to acquire the local address of the machine
-     * */
+     */
     public void start() throws UnknownHostException {
         // Add ourselves to the knownPeers set so other can know that we exist on the network...
         var addr = InetAddress.getLocalHost();
@@ -95,7 +98,7 @@ public class Commander {
      * Method to set a reference to the server object.
      *
      * @param server - The reference to the server object
-     * */
+     */
     public void setServer(Server server) {
         this.server = server;
     }
@@ -115,8 +118,8 @@ public class Commander {
      * @param commandString The command that will be parsed and interpreted by the
      *                      commander
      * @return A string denoting the error message (if any) with the command.
-     * */
-    public String pushCommand(String commandString) {
+     */
+    public String pushCommand(String commandString) throws InterruptedException {
 
         // check if the given command is empty or just whitespaces, if so skip
         // attempting to decipher the given command.
@@ -178,10 +181,12 @@ public class Commander {
                 // Check to ensure that the client sent, and received a response. If something
                 // didn't go to accord on the way, the response object should be a null. Hence,
                 // it's ok to skip printing the response and to move on.
-                if (response != null) {
+                if (response != null && response.get("status").asBoolean()) {
                     var printer = new ResourceTable(response);
 
                     printer.print();  // Use a printer function provided by resource list.
+                } else {
+                    return response.get("message").asText();
                 }
 
                 break;
@@ -222,6 +227,8 @@ public class Commander {
                     );
 
                     downloader.start();
+
+                    downloader.getStartSignal().await();
 
                     // append the downloader thread to our downloader list
                     this.downloads.add(downloader);
@@ -276,7 +283,7 @@ public class Commander {
      * Method that is used to add a new Peer to the knownPeer list
      *
      * @param peer - The peer that will be added to the knownPeer list
-     * */
+     */
     public void addKnownPeer(Peer peer) {
         this.knownPeers.put(peer.getAddress(), peer);
     }
@@ -286,7 +293,7 @@ public class Commander {
      * Method to get the active ongoing downloads
      *
      * @return A list of Downloader objects
-     * */
+     */
     public List<Downloader> getDownloads() {
         return this.downloads;
     }
@@ -296,7 +303,7 @@ public class Commander {
      * Method to get the stored knownPeers
      *
      * @return A map that maps an IP address to a Peer object
-     * */
+     */
     public Map<String, Peer> getKnownPeers() {
         return this.knownPeers;
     }

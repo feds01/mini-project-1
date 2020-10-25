@@ -3,6 +3,7 @@ package common;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
 
@@ -51,7 +52,28 @@ public class Configuration {
 
             // load the properties from the configuration file
             properties.load(input);
-        } catch (IOException e) {
+
+            var saveRequired = false;
+
+            // set the default download and upload folders as the users home directory
+            if (properties.getProperty("download").equals("")) {
+                properties.setProperty("download", System.getProperty("user.home"));
+                saveRequired = true;
+            }
+
+            if (properties.getProperty("upload").equals("")) {
+                properties.setProperty("upload", System.getProperty("user.home"));
+                saveRequired = true;
+            }
+
+            // If we need to overwrite the default settings of the application, then do so
+            if (saveRequired) {
+                var output =Files.newBufferedWriter(Paths.get(this.getClass().getClassLoader().getResource("config.properties").toURI()));
+
+                properties.store(output, null);
+            }
+
+        } catch (IOException | URISyntaxException e) {
             e.printStackTrace();
         }
     }

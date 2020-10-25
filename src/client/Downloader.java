@@ -5,10 +5,12 @@ import common.protocol.Command;
 import common.resources.FileEntry;
 
 import java.io.*;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -19,9 +21,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class Downloader extends BaseConnection implements Runnable {
     /**
-     *
+     * Name of the file
      */
-    private final String filePath;
+    private final String fileName;
+
+    /**
+     * The path to the location where the resource will be saved
+     * */
+    private Path filePath;
 
     /**
      * The thread instance that is used to run the downloader instance on.
@@ -53,6 +60,13 @@ public class Downloader extends BaseConnection implements Runnable {
     private final byte[] digest;
 
     /**
+     * A concurrent safe counter used to determine if the server has started and is
+     * listening to connections. If the value of the startSignal is zero, this means
+     * that the server is ready.
+     */
+    private final CountDownLatch startSignal = new CountDownLatch(1);
+
+    /**
      * Variable representing the status of the download
      */
     private DownloaderStatus status = DownloaderStatus.NOT_STARTED;
@@ -70,13 +84,24 @@ public class Downloader extends BaseConnection implements Runnable {
         super(host, port);
 
         // get the important metadata from the info object
-        this.filePath = info.get("file").asText();
+        this.fileName = info.get("file").asText();
         this.size = info.get("size").asLong();
         this.digest = Base64.getDecoder().decode(info.get("digest").asText());
     }
 
     /**
-     * Method to start the server.
+     * Method to get the associated CountDownLatch in order to await for
+     * the countdown to reach to zero, essentially acting as a lock.
+     *
+     * @return the server's start signal
+     */
+    public CountDownLatch getStartSignal() {
+        return this.startSignal;
+    }
+
+
+    /**
+     * Method to start the downloader.
      */
     public void start() {
         worker = new Thread(this);
@@ -84,7 +109,7 @@ public class Downloader extends BaseConnection implements Runnable {
     }
 
     /**
-     * Method to stop the server.
+     * Method to stop the downloader.
      */
     public void stop() {
         running.set(false);
@@ -109,8 +134,6 @@ public class Downloader extends BaseConnection implements Runnable {
         this.running.set(true);
         this.status = DownloaderStatus.STARTED;
 
-        Path filePath = getPathForResource();
-
         // hold a signature of the 'local' file version
         byte[] localDigest = new byte[]{};
 
@@ -119,6 +142,10 @@ public class Downloader extends BaseConnection implements Runnable {
         // version of file changes, we have to account for this problem and hence
         // we should check for a digest mis-match every time.
         try {
+            this.filePath = getPathForResource();
+
+            this.startSignal.countDown();
+
             while (!Arrays.equals(this.digest, localDigest) && this.running.get()) {
                 super.outputStream.printf("%s %s%n", Command.Download, this.filePath);
 
@@ -139,17 +166,10 @@ public class Downloader extends BaseConnection implements Runnable {
             // resources that are inherited from the connection base class.
             this.status = DownloaderStatus.FINISHED;
         } catch (IOException e) {
-
-            e.printStackTrace();
-
-            // We might have to delete any leftover resources that we're left by
-            // writing an incomplete version of the file..
-            boolean deleted = filePath.toFile().delete();
-
-            if (!deleted) {
-                System.err.println("Couldn't cleanup a failed download");
-            }
-
+            this.status = DownloaderStatus.FAILED;
+        } catch (InvalidPathException e) {
+            System.out.println("Download folder doesn't exist. Aborting download!");
+            this.startSignal.countDown();
             this.status = DownloaderStatus.FAILED;
         } finally {
             super.cleanup();
@@ -218,7 +238,7 @@ public class Downloader extends BaseConnection implements Runnable {
      */
     private Path getPathForResource() {
         // create an output stream for the file in the 'downloads' folder.
-        var originalFileOutputUri = Paths.get(BaseConnection.config.get("download"), Path.of(this.filePath).getFileName().toString());
+        var originalFileOutputUri = Paths.get(BaseConnection.config.get("download"), Path.of(this.fileName).getFileName().toString());
         var fileOutputURI = originalFileOutputUri;
 
         // check if the file already exists on our side, otherwise attempt to add a suffix
@@ -251,7 +271,7 @@ public class Downloader extends BaseConnection implements Runnable {
     public String getProgressString() {
         String arrowIndicator = "=".repeat((int) (this.progress / 5)) + ">";
 
-        return String.format("[%-21s] %.2f%% %4s with status %s", arrowIndicator, this.progress, this.filePath, this.status);
+        return String.format("[%-21s] %.2f%% %4s with status %s", arrowIndicator, this.progress, this.fileName, this.status);
     }
 
 
@@ -275,12 +295,12 @@ public class Downloader extends BaseConnection implements Runnable {
         super.cleanup();
 
         // if the file didn't finish downloading, we need to remove it from the filesystem
-        var file = Path.of(filePath).toFile();
+        var file = filePath.toFile();
 
         if (file.exists() && !this.status.equals(DownloaderStatus.FINISHED)) {
             // We might have to delete any leftover resources that we're left by
             // writing an incomplete version of the file..
-            boolean deleted = Path.of(filePath).toFile().delete();
+            boolean deleted = filePath.toFile().delete();
 
             if (!deleted) {
                 System.err.println("Oops! Couldn't cleanup download.");
