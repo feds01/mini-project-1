@@ -2,20 +2,27 @@ import cli.Commander;
 import client.Downloader;
 import common.Networking;
 import common.Configuration;
+import server.PeerReceiver;
 import server.Server;
 
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * The entry point of the program, this is where the client and server, and peer
+ * listener component are started.
  *
+ * @author 200008575
  * */
 public class FileShareMain {
 
+    /**
+     * Prefix that is used to display a new line in the command line interface.
+     * */
     static String CONSOLE_PREFIX = "> ";
 
     /**
-     *
+     * The entry point method of the program
      * */
     public static void main(String[] args) {
         var config = Configuration.getInstance();
@@ -23,23 +30,25 @@ public class FileShareMain {
         var port = Networking.getFreePort();
 
         try (
-                var scanner = new Scanner(System.in);
+                var scanner = new Scanner(System.in)
         ) {
             if (args.length == 1) {
                 port = Integer.parseInt(args[0]);
             }
 
-
+            // boot the server that listens for incoming connections...
             var server = new Server(port);
 
-            // boot the server that listens for incoming connections...
             server.start();
 
 
-            // wait for the server to state that it's successfully started...
+            // wait for the server to state that it's successfully started since. If the server
+            // couldn't start after 1 second then we exit. we need to wait for the server to
+            // start since we need to instantiate our Commander and PeerReceiver instances with
+            // the server object...
             boolean hasStarted = server.getStartSignal().await(1, TimeUnit.SECONDS);
 
-            // The server couldn't be started, and hence we can't perform any operations
+            // The server couldn't be started, and hence we can't perform any further operations
             if (!hasStarted) {
                 System.exit(-1);
             }
@@ -47,6 +56,10 @@ public class FileShareMain {
             // print out application settings.
             System.out.println("Running with download directory: " + config.get("download"));
             System.out.println("Running with upload directory: " + config.get("upload"));
+
+            // boot up PeerReceiver to listen for broadcasts of similar applications...
+            var peerReceiver =  new PeerReceiver();
+            peerReceiver.start();
 
             // boot up the commander for cli...
             var commander = Commander.getInstance();

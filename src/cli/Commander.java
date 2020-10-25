@@ -1,34 +1,49 @@
 package cli;
 
-import cli.printers.ResourceList;
+import cli.printers.ResourceTable;
 import client.Client;
 import client.Downloader;
 import client.DownloaderStatus;
 import common.Configuration;
 import common.Networking;
+import server.Peer;
 import server.Server;
 import common.protocol.Command;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
+ * Singleton class that is responsible for handling the command line
+ * aspect of the application.
  *
+ * @author 200008575
  * */
 public class Commander {
     /**
-     *
+     * A reference to the server object
      * */
     private Server server;
 
     /**
-     *
+     * A Hash map of known peers on the network that is mapped by the address of
+     * the peer to the peer object.
+     */
+    Map<String, Peer> knownPeers = new ConcurrentHashMap<>();
+
+    /**
+     * Variable that holds the client object which commander uses to send
+     * commands and receive data from the peer.
      * */
     private Client client;
 
 
+    /**
+     * Instance of the configuration object which is used to get application settings.
+     * */
     private final Configuration config = Configuration.getInstance();
 
     /**
@@ -37,18 +52,21 @@ public class Commander {
     private final List<Downloader> downloads = new ArrayList<>();
 
     /**
-     *
+     * Variable that holds the reference of this object that is used
+     * when external callers need to access the commander.
      * */
     private static final Commander instance = new Commander();
 
     /**
-     *
+     * Commander instantiation method.
      * */
     private Commander() {
     }
 
     /**
+     * Method to get an instance of the Commander object
      *
+     * @return A reference of this object.
      * */
     public static Commander getInstance() {
         return instance;
@@ -56,21 +74,47 @@ public class Commander {
 
 
     /**
+     * Method to start the commander. It will firstly add the local address of the
+     * program to knownPeers, so that other member on the network can know about this
+     * peer.
      *
+     * @throws UnknownHostException if the method failed to acquire the local address of the machine
      * */
-    public void start() {
+    public void start() throws UnknownHostException {
+        // Add ourselves to the knownPeers set so other can know that we exist on the network...
+        var addr = InetAddress.getLocalHost();
+        var localAddress = addr.getHostAddress() + ":" + server.getPort();
+
+        this.knownPeers.put(localAddress, new Peer(localAddress, addr.getHostName()));
+
+        // print the initial line of the cli
         System.out.print("> ");
     }
 
     /**
+     * Method to set a reference to the server object.
      *
+     * @param server - The reference to the server object
      * */
     public void setServer(Server server) {
         this.server = server;
     }
 
     /**
+     * Method to push a command to the Commander. The method will parse and
+     * attempt to execute the associated action with the given command. If the
+     * command is not recognised or if the command is improperly formed, the
+     * method will return a string that denotes the error with the given command.
+     * If the command is valid, an empty string is returned to denote that the
+     * command is valid. This method may also print content to the console if it
+     * is part of the action that is invoked by the command. For example if the
+     * command 'list' was passed, this method will print the response from
+     * the current connection (if exists) of the contents of the 'upload folder' on
+     * other peer's side.
      *
+     * @param commandString The command that will be parsed and interpreted by the
+     *                      commander
+     * @return A string denoting the error message (if any) with the command.
      * */
     public String pushCommand(String commandString) {
 
@@ -90,9 +134,15 @@ public class Commander {
                 }
 
                 try {
-                    var address = Networking.parseAddressFromString(command[1]);
+                    var addr = Networking.parseAddressFromString(command[1]);
 
-                    this.client = new Client(address.getHostName(), address.getPort());
+
+                    this.client = new Client(addr.getHostName(), addr.getPort());
+
+                    // If we successfully connect to the other peer, this means that we can add them
+                    // as a known peer for other peers to know about them
+                    this.addKnownPeer(new Peer(command[1], this.client.getHost()));
+
                 } catch (IllegalArgumentException e) {
                     return e.getMessage();
                 }
@@ -129,7 +179,7 @@ public class Commander {
                 // didn't go to accord on the way, the response object should be a null. Hence,
                 // it's ok to skip printing the response and to move on.
                 if (response != null) {
-                    var printer = new ResourceList(response);
+                    var printer = new ResourceTable(response);
 
                     printer.print();  // Use a printer function provided by resource list.
                 }
@@ -137,6 +187,7 @@ public class Commander {
                 break;
             }
             case "search": {
+                this.knownPeers.values().forEach((item) -> System.out.println(item.toString()));
                 break;
             }
             case "get": {
@@ -181,7 +232,6 @@ public class Commander {
                     System.out.println(response.get("message").asText());
                 }
 
-
                 break;
             }
             // Command to print the working status of any on-going downloads that are occurring.
@@ -216,14 +266,37 @@ public class Commander {
             }
         }
 
+        // If no errors occurred during the parsing of the given command, simply
+        // return an empty string since there is nothing to print to the console.
         return "";
+    }
+
+    /**
+     * Method that is used to add a new Peer to the knownPeer list
+     *
+     * @param peer - The peer that will be added to the knownPeer list
+     * */
+    public void addKnownPeer(Peer peer) {
+        this.knownPeers.put(peer.getAddress(), peer);
     }
 
 
     /**
+     * Method to get the active ongoing downloads
      *
+     * @return A list of Downloader objects
      * */
-    public Iterable<Downloader> getDownloads() {
+    public List<Downloader> getDownloads() {
         return this.downloads;
+    }
+
+
+    /**
+     * Method to get the stored knownPeers
+     *
+     * @return A map that maps an IP address to a Peer object
+     * */
+    public Map<String, Peer> getKnownPeers() {
+        return this.knownPeers;
     }
 }

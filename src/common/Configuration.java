@@ -7,21 +7,39 @@ import java.nio.file.Paths;
 import java.util.Properties;
 
 /**
+ * Configuration class that is used to hold static properties of the application
+ * and to access application settings that are held in the 'config.properties' file.
  *
+ * @author 200008575
  * */
 public class Configuration {
+
     /**
-     *
+     * Port that is used by the SFS to broadcast and receive messages across the
+     * local network by instances of the SFS running on the network.
+     * */
+    public static int MULTICAST_PORT = 22017;
+
+    /**
+     * Group address that is used by the SFS to broadcast and receive messages across the
+     * local network by instances of the SFS running on the network.
+     * */
+    public static String MULTICAST_GROUP = "231.0.0.0";
+
+    /**
+     * Properties object that is used to represent the 'config.properties' file. The
+     * file holds the settings on where the 'upload' and 'download' folder is.
      * */
     private Properties properties;
 
     /**
-     *
+     * Variable that holds the reference of this object that is used
+     * when external callers need to access the configuration object.
      * */
     private static final Configuration instance = new Configuration();
 
     /**
-     *
+     * Configuration instantiation method.
      * */
     private Configuration() {
         try (var input = this.getClass().getClassLoader().getResourceAsStream("config.properties")) {
@@ -39,14 +57,22 @@ public class Configuration {
     }
 
     /**
+     * Method to get an instance of the Configuration object
      *
+     * @return A reference of this object.
      * */
     public static Configuration getInstance() {
         return instance;
     }
 
     /**
+     * Method to get a key that is represented in the properties object.
      *
+     * @param key The name of the key to be accessed.
+     * @return The value that is held by the key.
+     *
+     * @throws IllegalArgumentException if the key doesn't exist in the properties
+     *                                  object.
      * */
     public String get(String key) {
         if (!this.properties.containsKey(key)) {
@@ -57,7 +83,15 @@ public class Configuration {
     }
 
     /**
+     * Method to set a key with a value that is represented in the properties object.
+     * When this method is called, the properties object is saved to 'config.properties'
+     * to ensure that the settings persist.
      *
+     * @param key - The name of the key to be set.
+     * @param value - The new value that the key should store.
+     *
+     * @throws IllegalArgumentException if the key doesn't exist in the properties
+     *                                  object.
      * */
     public void set(String key, String value) {
         if (!this.properties.containsKey(key)) {

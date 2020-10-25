@@ -9,35 +9,42 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
+ * Method used to print to the CLI a Table of resources which are available to be
+ * downloaded from the peer with corresponding information about the resources.
  *
+ * @author 200008575
  * */
-public class ResourceList {
+public class ResourceTable {
     /**
-     *
+     * The list of nodes that represent directory entries on the
      * */
-    private final List<JsonNode> fileList;
+    private final List<JsonNode> resourceList;
 
     /**
+     * Method constructor to build a ResourceTable instance from a JsonNode
+     * object that is returned from the 'list' command.
      *
+     * @param info The response object received from the peer to be transformed
+     *             into a printable table.
      * */
-    public ResourceList(JsonNode response) {
-        var listNode = response.get("files");
+    public ResourceTable(JsonNode info) {
+        var listNode = info.get("files");
 
         if (listNode == null) {
             throw new IllegalArgumentException("Response does not match expected format.");
         }
 
-        this.fileList = StreamSupport.stream(response.get("files").spliterator(), false)
+        this.resourceList = StreamSupport.stream(info.get("files").spliterator(), false)
                 .collect(Collectors.toList());
     }
 
     /**
-     *
+     * Method to construct and print the table of resources to the CLI
      * */
     public void print() {
 
         // Don't attempt to build a resource table if there are no resources
-        if (this.fileList.size() == 0) {
+        if (this.resourceList.size() == 0) {
             System.out.println("No files");
             return;
         }
@@ -55,9 +62,7 @@ public class ResourceList {
         System.out.println(this.getRow(rowLength));
 
         // now print the table entries
-        fileList.forEach(item -> {
-            System.out.printf(tableFormat, item.get("type").asText(), item.get("path").asText());
-        });
+        resourceList.forEach(item -> System.out.printf(tableFormat, item.get("type").asText(), item.get("path").asText()));
 
         // finish off the table with a row at the bottom
         System.out.println(this.getRow(rowLength));
@@ -65,17 +70,23 @@ public class ResourceList {
     }
 
     /**
+     * Internal method to get a table separator row
      *
+     * @return The constructed table row string
      * */
     private String getRow(int length) {
         return "-".repeat(length);
     }
 
     /**
+     * Internal method to get the longest member (by character length) of a
+     * field in the given resource list.
      *
+     * @param fieldName The name of the field
+     * @return The longest member of the field set.
      * */
     private String getLongestMember(String fieldName) {
-        return Collections.max(fileList.stream().map(item -> item.get(fieldName).asText())
+        return Collections.max(resourceList.stream().map(item -> item.get(fieldName).asText())
                 .collect(Collectors.toList()), Comparator.comparing(String::length));
     }
 }

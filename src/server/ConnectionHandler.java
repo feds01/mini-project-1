@@ -1,14 +1,13 @@
 package server;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import common.Configuration;
 import common.DisconnectedException;
+import common.protocol.Command;
 import common.resources.DirectoryEntry;
 import common.resources.FileEntry;
-import common.resources.IEntry;
-import common.protocol.Command;
+import interfaces.IEntry;
 
 import java.io.*;
 import java.net.Socket;
@@ -19,47 +18,106 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 
+/**
+ * ConnectionHandler class is used by the server instance to handle
+ * an incoming connection in it's own process. This means that the server
+ * can handle multiple connections simultaneously making it more usable.
+ *
+ * @author 200008575
+ */
 public class ConnectionHandler extends Thread {
+    /**
+     * An instance of a Jackson ObjectMapper, used to serialize data that
+     * will be transmitted through the socket to the peer in order to transmit
+     * responses.
+     */
     public final static ObjectMapper mapper = new ObjectMapper();
 
+    /**
+     * Instance of the configuration object which is used to get application settings.
+     * */
     private final Configuration config = Configuration.getInstance();
 
+    /**
+     * The socket that the connection is interacting with.
+     */
+    private final Socket socket;
 
-    private final Socket connection;
+    /**
+     *  The input stream of the connection that the ConnectionHandler is managing.
+     */
     private InputStream inputStream;
+
+    /**
+     * The output stream of the connection that the ConnectionHandler is managing.
+     */
     private PrintWriter outputStream;
+
+    /**
+     * The reader of the input stream which is used to listen for commands from the
+     * peer connection.
+     */
     private BufferedReader reader;
 
+    /**
+     * Variable to hold the running status of the ConnectionHandler instance. This
+     * is atomic due to that the ConnectionHandler could be stopped within the server
+     * when it shuts down. To ensure concurrent safety, it is made atomic so that
+     * only one caller can set the running status of the ConnectionHandler.
+     */
     private final AtomicBoolean running = new AtomicBoolean(false);
 
+    /**
+     * Constructor method for the ConnectionHandler class.
+     */
     public ConnectionHandler(Socket connection) {
-        this.connection = connection;
-
-        try {
-            this.inputStream = connection.getInputStream();
-            this.outputStream = new PrintWriter(connection.getOutputStream(), true);
-            this.reader = new BufferedReader(new InputStreamReader(this.inputStream));
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        this.socket = connection;
     }
 
+    /**
+     * Method that is used to instantiate the ConnectionHandler. The listen
+     * method is called with a exception handler wrapper that will invoke
+     * the 'cleanup' method if the connection is unexpectedly stopped.
+     */
     @Override
     public synchronized void run() {
         this.running.set(true);
 
         try {
+            this.inputStream = socket.getInputStream();
+            this.outputStream = new PrintWriter(socket.getOutputStream(), true);
+            this.reader = new BufferedReader(new InputStreamReader(this.inputStream));
+
             this.listen();
         } catch (IOException | DisconnectedException e) {
             this.cleanup();
         }
     }
 
+    /**
+     * Method that is used to invoke a shutdown action of the ConnectionHandler. It
+     * will set the running status of the thread to false, and then interrupt the
+     * thread.
+     */
     public void shutdown() {
         this.running.set(false);
+        this.interrupt();
     }
 
+    /**
+     * Method that acts as a listener for any requests from the peer. The method
+     * will attempt to process the given command. When the command is processed, a response
+     * object is formed in the form of an Object node that will written as a byte array to
+     * the socket output stream (PrinterWriter) in the form of a line. However, if the request
+     * is asking to download a resource, the byte array is written to a DataOutputStream
+     * and no response object is returned.
+     *
+     * If the command is not valid or isn't part of the transmission protocol, a response is still
+     * returned to notify the peer that the request was invalid.
+     *
+     * @throws DisconnectedException if the peer disconnects unexpectedly
+     * @throws IOException if the peer connection drops whilst writing to an output stream.
+     */
     private void listen() throws DisconnectedException, IOException {
         while (this.running.get()) {
 
@@ -106,10 +164,6 @@ public class ConnectionHandler extends Thread {
                     response.set("files", fileList);
                     break;
                 }
-                case Peers: {
-                    response.put("message", "Peers not implemented yet.");
-                    break;
-                }
                 case Get: {
                     var filePath = request.length > 1 ? request[1] : null;
                     response = getFileMetadata(filePath);
@@ -122,10 +176,12 @@ public class ConnectionHandler extends Thread {
 
                     if (response.get("status").asBoolean()) {
                         var file = new File(String.valueOf(Paths.get(config.get("upload"), request[1])));
-                        var out = new DataOutputStream(this.connection.getOutputStream());
+                        var out = new DataOutputStream(this.socket.getOutputStream());
 
                         var fileBuffer = this.loadFile(file.toPath());
 
+                        // write the file buffer to the DataOutputStream, flush it and immediately
+                        // close it since we aren't going to need to use it anymore.
                         out.write(fileBuffer, 0, fileBuffer.length);
                         out.flush();
                         out.close();
@@ -146,6 +202,17 @@ public class ConnectionHandler extends Thread {
         this.cleanup();
     }
 
+
+    /**
+     * Method to collect metadata on the given file such as file size, checksum and the
+     * file name. If the file doesn't exist, not a file, or is not a child of the 'upload'
+     * folder; the method will return an object with a message corresponding to the error.
+     * The constructed object also holds a status of if the 'request' was valid or not.
+     *
+     * @param filePath - The path to the file that the method should get metadata on.
+     *
+     * @return An ObjectNode that represents the metadata of the given file
+     */
     private ObjectNode getFileMetadata(String filePath) {
         ObjectNode response = mapper.createObjectNode();
 
@@ -187,6 +254,13 @@ public class ConnectionHandler extends Thread {
     }
 
 
+    /**
+     * Method to load a file into memory in the form of a byte array.
+     *
+     * @param fileName - The path to the file that will be loaded into memory.
+     *
+     * @throws IllegalArgumentException if the path to the file does not exist.
+     */
     private byte[] loadFile(Path fileName) {
         var loader = new FileEntry(fileName);
         loader.load();
@@ -200,15 +274,30 @@ public class ConnectionHandler extends Thread {
      * or FileEntry. FileEntry object has several methods which allows the caller to invoke
      * methods that can retrieve metadata from the file like the size or compute the md5 hash.
      *
+     * @param folderName - The relative path to a folder within the 'upload' folder that will be
+     *                     concatenated with the upload folder path to list the contents of the
+     *                     child directory.
+     *
      * @return A list of file/directory entries based on the location of the upload folder.
+     *
+     * @throws IllegalArgumentException if the formed path is a file and not a folder.
+     * @throws FileNotFoundException if the result of combining the 'upload' folder path and
+     *                               and the folderName parameter does not exist, or is not a
+     *                               child of the 'upload' folder.
      */
-    private List<IEntry> getUploadFolderContents(String folderName) throws FileNotFoundException {
+    private List<IEntry> getUploadFolderContents(String folderName) throws IOException {
         File uploadFolder = Paths.get(Configuration.getInstance().get("upload"), folderName).toFile();
 
+        // Ensure the formed path is not a file
         if (uploadFolder.isFile()) {
             throw new IllegalArgumentException("Upload folder must not be a file.");
         }
 
+        // @Security: Ensure that the result from combining the 'upload' folder and folder name is a child of
+        // the 'upload folder'. Otherwise, the client could have access to files across the whole system.
+        //
+        // We should also consider if the path is a symbolic links that points outside of the directory. If so, that
+        // could allow the client to get access to files outside of the 'upload' folder.
         if (!uploadFolder.getAbsolutePath().startsWith(config.get("upload")) || !uploadFolder.exists()) {
             throw new FileNotFoundException("no such folder exists.");
         }
@@ -229,13 +318,14 @@ public class ConnectionHandler extends Thread {
     }
 
     /**
-     *
-     * */
+     * Method that will close the socket and input streams that the ConnectionHandler
+     * instance still has open.
+     */
     private void cleanup() {
         try {
             reader.close();
             inputStream.close();
-            connection.close();
+            socket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }

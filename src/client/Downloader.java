@@ -12,7 +12,10 @@ import java.util.Base64;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
+ * Downloader class used to start up an isolated connection that will
+ * independently download a resource from the peer.
  *
+ * @author 200008575
  */
 public class Downloader extends BaseConnection implements Runnable {
     /**
@@ -21,7 +24,7 @@ public class Downloader extends BaseConnection implements Runnable {
     private final String filePath;
 
     /**
-     *
+     * The thread instance that is used to run the downloader instance on.
      */
     private Thread worker;
 
@@ -43,31 +46,37 @@ public class Downloader extends BaseConnection implements Runnable {
     private float progress = 0;
 
     /**
-     * The MD5 Signature of the file download, which will be used to
+     * The MD5 digest of the file download, which will be used to
      * ensure that the file was successfully downloaded and it isn't
      * missing any content.
      */
     private final byte[] digest;
 
     /**
-     *
+     * Variable representing the status of the download
      */
     private DownloaderStatus status = DownloaderStatus.NOT_STARTED;
 
 
     /**
+     * Method constructor to instantiate a Downloader object.
      *
+     * @param host - The hostname of the peer
+     * @param port - The port on the hostname of the peer
+     * @param info - Information received from the peer about the downloaded
+     *             resource that will be used to download the current file.
      */
     public Downloader(String host, int port, JsonNode info) {
         super(host, port);
 
+        // get the important metadata from the info object
         this.filePath = info.get("file").asText();
         this.size = info.get("size").asLong();
         this.digest = Base64.getDecoder().decode(info.get("digest").asText());
     }
 
     /**
-     *
+     * Method to start the server.
      */
     public void start() {
         worker = new Thread(this);
@@ -75,7 +84,7 @@ public class Downloader extends BaseConnection implements Runnable {
     }
 
     /**
-     *
+     * Method to stop the server.
      */
     public void stop() {
         running.set(false);
@@ -83,12 +92,20 @@ public class Downloader extends BaseConnection implements Runnable {
     }
 
     /**
-     *
+     * Method that will begin the downloading of the resource. The method
+     * will first acquire a local path that will be used to represent the
+     * downloaded resource. The method will then send a {@link Command} 'Download'
+     * request to the server which will make the server begin writing to a
+     * {@link DataOutputStream} that will be read. The file will be downloaded
+     * and written to the given path. After finishing downloading the file, an
+     * MD5 digest of the local file will be computed to check that the downloaded
+     * resource is the same as the remote resource. Due to networking connections, some
+     * packets may of dropped or the resource could of changed during the time of
+     * downloading the file. If the MD5 digests are not equivalent, the downloader
+     * will re-attempt to download the resource until the digests match.
      */
     @Override
     public void run() {
-        super.run();
-
         this.running.set(true);
         this.status = DownloaderStatus.STARTED;
 
@@ -140,7 +157,13 @@ public class Downloader extends BaseConnection implements Runnable {
     }
 
     /**
+     * Method to read the file from the socket connection. The method
+     * will write the received byte array to the path that is given
+     * to the method.
      *
+     * @param to - The path of the file that the byte array will be written to.
+     *
+     * @return A {@link File} representing where the file was downloaded to.
      */
     private File downloadFile(String to) throws IOException {
         // @Consider: This is a dangerous operation since anyone could attempt
@@ -156,7 +179,7 @@ public class Downloader extends BaseConnection implements Runnable {
         // the webpage: https://www.javatpoint.com/java-try-with-resources
         try (
                 var fileOutputStream = new FileOutputStream(file);
-                var bufferedOutputStream = new BufferedOutputStream(fileOutputStream);
+                var bufferedOutputStream = new BufferedOutputStream(fileOutputStream)
         ) {
 
             // Again, probably better to store these objects references in the support class
@@ -180,7 +203,18 @@ public class Downloader extends BaseConnection implements Runnable {
 
 
     /**
+     * Method used to acquire a path on the local computer in the 'download' folder.
+     * If the current filePath is already taken by another resource on the local system,
+     * the method construct a path with a suffix such as 'file (1).extension' and will
+     * check if it exists too. The method will continue incrementing the suffix until
+     * it finds an un-taken file path.
      *
+     * Some examples of the process:
+     * file.txt     -> file (1).txt
+     * file (2).txt -> file (3).txt
+     * file         -> file (1)
+     *
+     * @return A {@link Path} that will be used to write the downloaded resource to.
      */
     private Path getPathForResource() {
         // create an output stream for the file in the 'downloads' folder.
@@ -210,7 +244,9 @@ public class Downloader extends BaseConnection implements Runnable {
     }
 
     /**
+     * Method to get the download progress string of the download file.
      *
+     * @return A string that's formed from the status and progress of the download.
      */
     public String getProgressString() {
         String arrowIndicator = "=".repeat((int) (this.progress / 5)) + ">";
@@ -229,7 +265,10 @@ public class Downloader extends BaseConnection implements Runnable {
     }
 
     /**
-     *
+     * Method to clean up any resources that the downloader still has open. The method will
+     * also delete the file that it was writing the resource to if the status of the
+     * downloader hasn't finished. It is deleted because that means that the resource didn't
+     * finish downloading when the downloading unexpectedly stopped.
      */
     @Override
     public void cleanup() {
