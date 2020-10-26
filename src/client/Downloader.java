@@ -167,11 +167,9 @@ public class Downloader extends BaseConnection implements Runnable {
      * @return A {@link File} representing where the file was downloaded to.
      */
     private File downloadFile(String to) throws IOException {
-        // @Consider: This is a dangerous operation since anyone could attempt
-        //            to download a file that is larger than 2GB or 2^31 -1 bytes
-        //            large. At that point it is probably safer to download the file
-        //            in chunks.
-        var fileBuffer = new byte[(int) this.size];
+        // Use a small temporary buffer to hold the data which will be
+        // immediately written to the file.
+        var fileBuffer = new byte[4096];
 
         var file = new File(to);
 
@@ -186,12 +184,14 @@ public class Downloader extends BaseConnection implements Runnable {
             // Again, probably better to store these objects references in the support class
             DataInputStream dis = new DataInputStream(this.socket.getInputStream());
 
-            int current = 0;
+            int count;
+            int total = 0;
 
-            while (current < (int) this.size) {
-                fileBuffer[current++] = dis.readByte();
+            while ((count = dis.read(fileBuffer)) > 0) {
+                bufferedOutputStream.write(fileBuffer, 0, count);
 
-                this.progress = ((float) current / this.size) * 100f;
+                total += count;
+                this.progress = ((float) total / this.size) * 100f;
             }
 
             // @Workaround: What if the file that was being downloaded has a size of zero?
@@ -202,7 +202,6 @@ public class Downloader extends BaseConnection implements Runnable {
             }
 
             // finally, write it to the output stream...
-            bufferedOutputStream.write(fileBuffer, 0, (int) this.size);
             bufferedOutputStream.flush();
         }
 

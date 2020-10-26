@@ -20,7 +20,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 
@@ -230,7 +229,6 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
         // terminated externally by the server.
         this.cleanup();
     }
-
 
     /**
      * Method to collect metadata on the given file such as file size, checksum and the
