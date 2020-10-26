@@ -19,6 +19,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 
@@ -119,10 +120,9 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
      * If the command is not valid or isn't part of the transmission protocol, a response is still
      * returned to notify the peer that the request was invalid.
      *
-     * @throws DisconnectedException if the peer disconnects unexpectedly
      * @throws IOException           if the peer connection drops whilst writing to an output stream.
      */
-    private void listen() throws DisconnectedException, IOException {
+    private void listen() throws IOException {
         while (this.running.get()) {
             // We expect to get the first argument as the name of the command that is being
             // invoked for the server to respond. Any further components of the request are
@@ -131,12 +131,6 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
             // command with the file argument as 'file_a.txt'.
             var request = this.bufferedReader.readLine().split(" ");
             var command = Command.valueOf(request[0]);
-
-            // if readLine fails we can deduce here that the connection to the client is broken
-            // and shut down the connection on this side cleanly by throwing a common.DisconnectedException
-            if (command == null) {
-                throw new DisconnectedException("Connection closed.");
-            }
 
             // create an initial json object that will be used as a response.
             var response = mapper.createObjectNode();
@@ -335,7 +329,7 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
         List<IEntry> files = new ArrayList<>();
 
         // Loop through each entry in the upload folder and convert them into FileEntry objects
-        for (File file : uploadFolder.listFiles()) {
+        for (File file : Objects.requireNonNull(uploadFolder.listFiles())) {
             if (file.isFile()) {
                 files.add(new FileEntry(file.toPath()));
             } else {

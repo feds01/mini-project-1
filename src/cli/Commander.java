@@ -139,6 +139,8 @@ public class Commander {
                 try {
                     var addr = Networking.parseAddressFromString(command[1]);
 
+                    // ensure that the address isn't null
+                    assert addr != null;
 
                     this.client = new Client(addr.getHostName(), addr.getPort());
 
@@ -186,6 +188,8 @@ public class Commander {
 
                     printer.print();  // Use a printer function provided by resource list.
                 } else {
+                    assert response != null;
+
                     return response.get("message").asText();
                 }
 
