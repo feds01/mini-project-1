@@ -97,7 +97,7 @@ public class FileShareMain {
             }
 
             // Clean-up any unfinished downloads that are currently active...
-            commander.getDownloads().forEach(Downloader::cleanup);
+            commander.getDownloads().forEach(Downloader::stop);
         } catch (NumberFormatException e) {
             System.out.println("Port argument must be an integer.");
         } catch (Exception e) {

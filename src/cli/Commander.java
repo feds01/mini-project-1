@@ -10,9 +10,9 @@ import common.protocol.Command;
 import server.Peer;
 import server.Server;
 
-import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.InvalidPathException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -119,7 +119,7 @@ public class Commander {
      *                      commander
      * @return A string denoting the error message (if any) with the command.
      */
-    public String pushCommand(String commandString) throws InterruptedException {
+    public String pushCommand(String commandString) {
 
         // check if the given command is empty or just whitespaces, if so skip
         // attempting to decipher the given command.
@@ -199,7 +199,6 @@ public class Commander {
                 if (this.client == null) {
                     return "Not connected to any peer.";
                 }
-                //TODO: change the command syntax to get "..." or get '...', probably using a regex
 
                 // We'll first need to query the metadata on this file from the server.
                 // We need to get the size of the file to check that it will fit onto
@@ -213,27 +212,28 @@ public class Commander {
                     // we need to check that the partition or disk that the download folder
                     // is present on has enough free space (initially) to save the file.
                     // Otherwise, we won't be able to write the file onto the storage.
-                    var downloadPath = new File(config.get("download"));
+                    try {
+                        var downloadPath = Downloader.getPathForResource(response.get("file").asText());
 
-                    // This is of course a very edge case scenario, but nevertheless a potential issue...
-                    if (downloadPath.getFreeSpace() < size) {
-                        return "No enough space on download folder drive to download file.";
+                        // This is of course a very edge case scenario, but nevertheless a potential issue...
+                        if (downloadPath.toFile().getFreeSpace() < size) {
+                            return "No enough space on download folder drive to download file.";
+                        }
+
+                        // spin up a downloader instance and start downloading the resource.
+                        var downloader = new Downloader(
+                                this.client.getHost(), this.client.getPort(),
+                                downloadPath,
+                                response
+                        );
+
+                        downloader.start();
+
+                        // append the downloader thread to our downloader list
+                        this.downloads.add(downloader);
+                    } catch (InvalidPathException e) { // This is thrown when
+                        return "Download folder doesn't exist. Aborting download!";
                     }
-
-                    // spin up a downloader instance and start downloading the resource.
-                    var downloader = new Downloader(
-                            this.client.getHost(), this.client.getPort(),
-                            response
-                    );
-
-                    downloader.start();
-
-                    downloader.getStartSignal().await();
-
-                    // append the downloader thread to our downloader list
-                    this.downloads.add(downloader);
-
-                    break;
                 } else {
                     // the response always returns the status of the request that can be used to
                     // inform the state of the request.
