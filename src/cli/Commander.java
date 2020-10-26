@@ -187,7 +187,7 @@ public class Commander {
                     return "Not connected to any peer.";
                 }
 
-                var response = this.client.sendCommand(Command.List);
+                var response = this.client.sendCommand(Command.List, Arrays.copyOfRange(command, 1, command.length));
 
                 // Check to ensure that the client sent, and received a response. If something
                 // didn't go to accord on the way, the response object should be a null. Hence,
@@ -196,6 +196,9 @@ public class Commander {
                     var printer = new ResourceTable(response);
 
                     printer.print();  // Use a printer function provided by resource list.
+                } if (response != null && !response.get("status").asBoolean()) {
+                    // If the request failed to get metadata for any reason, we should notify the client
+                    return response.get("message").asText();
                 } else if (response == null) {
                     // Set this connection as a 'dead' connection in knownPeers
                     this.knownPeers.get(this.client.getAddress()).setAlive(false);
@@ -216,7 +219,7 @@ public class Commander {
                 // We need to get the size of the file to check that it will fit onto
                 // our local machine, and we need to get the computed MD5 hash so we can
                 // later verify the integrity of the file...
-                var response = this.client.sendCommand(Command.Get, Arrays.copyOfRange(command, 1, command.length));
+                var response = this.client.sendCommand(Command.GetMeta, Arrays.copyOfRange(command, 1, command.length));
 
                 if (response != null && response.get("status").asBoolean()) {
                     var size = response.get("size").asLong();
@@ -225,7 +228,7 @@ public class Commander {
                     // is present on has enough free space (initially) to save the file.
                     // Otherwise, we won't be able to write the file onto the storage.
                     try {
-                        var downloadPath = Downloader.getPathForResource(response.get("file").asText());
+                        var downloadPath = Downloader.getPathForResource(response.get("fileName").asText());
 
                         // This is of course a very edge case scenario, but nevertheless a potential issue...
                         if (downloadPath.getParent().toFile().getFreeSpace() < size) {
@@ -243,11 +246,16 @@ public class Commander {
 
                         // append the downloader thread to our downloader list
                         this.downloads.add(downloader);
-                    } catch (InvalidPathException e) { // This is thrown when
+                    } catch (InvalidPathException e) { // This is thrown when the download folder doesn't exist
                         return "Download folder doesn't exist. Aborting download!";
                     } catch (IOException e) {
                         return "Couldn't establish connection with peer.";
                     }
+                } else if (response != null && !response.get("status").asBoolean()) {
+
+                    // If the request failed to get metadata for any reason, we should notify the client
+                    return response.get("message").asText();
+
                 } else if (response == null) {
                     // Set this connection as a 'dead' connection in knownPeers
                     this.knownPeers.get(this.client.getAddress()).setAlive(false);

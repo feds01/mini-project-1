@@ -4,17 +4,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import common.BaseConnection;
 import common.Configuration;
-import common.DisconnectedException;
 import common.protocol.Command;
 import common.resources.DirectoryEntry;
 import common.resources.FileEntry;
 import interfaces.IEntry;
 
-import java.io.*;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -94,7 +95,7 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
 
     /**
      * Method to return if the worker is still alive
-     * */
+     */
     public boolean isAlive() {
         return this.worker.isAlive();
     }
@@ -120,7 +121,7 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
      * If the command is not valid or isn't part of the transmission protocol, a response is still
      * returned to notify the peer that the request was invalid.
      *
-     * @throws IOException           if the peer connection drops whilst writing to an output stream.
+     * @throws IOException if the peer connection drops whilst writing to an output stream.
      */
     private void listen() throws IOException {
         while (this.running.get()) {
@@ -143,7 +144,11 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
                     // of a specific folder which is located under the upload folder,
                     // hence if they just want to list the root, then we'll set the
                     // additional argument to nothing.
-                    var listArg = request.length > 1 ? request[1] : "";
+                    var listArg = "";
+
+                    if (request.length > 1) {
+                        listArg =  String.join(" ", Arrays.copyOfRange(request, 1, request.length));
+                    }
 
                     // Iterate over the entry list and append the appropriate metadata on
                     try {
@@ -151,65 +156,69 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
                             var fileEntry = mapper.createObjectNode();
 
                             // append metadata about the objects in the
-                            fileEntry.put("type", entry.getType().toString());
-                            fileEntry.put("path", entry.getPath().getFileName().toString());
+                            fileEntry.put("type", entry.getType());
+                            fileEntry.put("path", entry.getFileName());
 
                             fileList.add(fileEntry);
                         }
 
                         // set the data into the response.
                         response.set("files", fileList);
-
                         response.put("status", true);
-                    } catch (FileNotFoundException e) {
+                    } catch (IOException e) {
                         response.put("status", false);
                         response.put("message", "Folder not found");
                     } catch (IllegalArgumentException e) {
                         response.put("status", false);
                         response.put("message", "Path must a file");
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
 
                     break;
                 }
+                case GetMeta:
                 case Get: {
-                    String filePath = null;
+                    String relativeFilePath;
 
-                    // If the get request has additional arguments, this means that it is a filename.
-                    // Filenames may contain spaces on them, so assume that the arguments to the get
-                    // command is a single filename.
+                    // Join all of the following arguments after 'Get/GetMeta' to allow for spaces in filenames.
                     if (request.length > 1) {
-                        filePath = String.join(" ", Arrays.copyOfRange(request, 1, request.length));
+                        relativeFilePath = String.join(" ", Arrays.copyOfRange(request, 1, request.length));
+                    } else {
+                        // the requester didn't provide an argument to the get command, and
+                        // hence is asking to get nothing.
+                        response.put("message", "Nothing to get.");
+                        response.put("status", false);
+
+                        break;
                     }
 
-                    response = getFileMetadata(filePath);
+                    FileEntry resource;
 
-                    break;
-                }
-                case Download: {
-                    String filePath = null;
-
-                    if (request.length > 1) {
-                        filePath = String.join(" ", Arrays.copyOfRange(request, 1, request.length));
+                    try {
+                        resource = new FileEntry(Paths.get(config.get("upload"), relativeFilePath));
+                    } catch (IllegalArgumentException e) {
+                        response.put("message", "No such file exists.");
+                        response.put("status", false);
+                        break;
                     }
 
-                    response = getFileMetadata(filePath);
+                    response = getFileMetadata(resource);
 
-                    if (response.get("status").asBoolean()) {
-                        var file = new File(String.valueOf(Paths.get(config.get("upload"), filePath)));
-                        var out = new DataOutputStream(this.socket.getOutputStream());
-
-                        var fileBuffer = this.loadFile(file.toPath());
-
-                        // write the file buffer to the DataOutputStream, flush it and immediately
-                        // close it since we aren't going to need to use it anymore.
-                        out.write(fileBuffer, 0, fileBuffer.length);
-                        out.flush();
-                        out.close();
-
-                        // skip writing the response object to outputStream since we're only
-                        // responding with the file.
-                        continue;
+                    // Don't continue by downloading the file if it's only a metadata request, and don't
+                    // continue if fetching the metadata failed for some reason.
+                    if (command == Command.GetMeta || !response.get("status").asBoolean()) {
+                        break;
                     }
+
+                    var out = new DataOutputStream(this.socket.getOutputStream());
+                    var fileBuffer = resource.getFileBuffer();
+
+                    // write the file buffer to the DataOutputStream, flush it and immediately
+                    // close it since we aren't going to need to use it anymore.
+                    out.write(fileBuffer, 0, fileBuffer.length);
+                    out.flush();
+                    out.close();
                 }
             }
 
@@ -229,20 +238,11 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
      * folder; the method will return an object with a message corresponding to the error.
      * The constructed object also holds a status of if the 'request' was valid or not.
      *
-     * @param filePath - The path to the file that the method should get metadata on.
+     * @param fileEntry - The file entry that the data should be converted into a JSON node
      * @return An ObjectNode that represents the metadata of the given file
      */
-    private ObjectNode getFileMetadata(String filePath) {
+    private ObjectNode getFileMetadata(FileEntry fileEntry) {
         ObjectNode response = mapper.createObjectNode();
-
-        // the requester didn't provide an argument to the get command, and
-        // hence is asking to get nothing.
-        if (filePath == null) {
-            response.put("message", "Nothing to get.");
-            response.put("status", false);
-
-            return response;
-        }
 
         // test that the fileURI is valid relative to our upload folder.
         // We must prevent the client from attempting to query a file out
@@ -250,7 +250,9 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
         // provided fileURI with our upload folder value. If the path
         // exists and is a file
         try {
-            var file = new File(String.valueOf(Paths.get(config.get("upload"), filePath)));
+            fileEntry.load();
+
+            var file = fileEntry.getPath().toFile();
 
             if (!file.getAbsolutePath().startsWith(config.get("upload")) || !file.exists()) {
                 response.put("message", "No such file exists.");
@@ -259,38 +261,23 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
                 return response;
             }
 
-            // compute the size and md5 hash of the file, send the parameters to
-            // the requester as specified by the protocol...
-            var fileLoader = new FileEntry(Path.of(file.getAbsolutePath()));
-            fileLoader.load();
-
-            response.put("file", String.valueOf(fileLoader.getPath().getFileName()));
-            response.put("digest", fileLoader.getDigest());
-            response.put("size", fileLoader.getSize());
-            response.put("message", "Getting file...");
+            // Serialize the FileEntry object, add a status to denote that the
+            // request was successful.
+            response = mapper.valueToTree(fileEntry);
             response.put("status", true);
+
+
         } catch (InvalidPathException e) {
             response.put("status", false);
             response.put("message", "Invalid file path");
+        } catch (FileNotFoundException e) {
+            response.put("status", false);
+            response.put("message", "Couldn't access file on remote.");
         } catch (Exception e) {
             e.printStackTrace();
         }
 
         return response;
-    }
-
-
-    /**
-     * Method to load a file into memory in the form of a byte array.
-     *
-     * @param fileName - The path to the file that will be loaded into memory.
-     * @throws IllegalArgumentException if the path to the file does not exist.
-     */
-    private byte[] loadFile(Path fileName) {
-        var loader = new FileEntry(fileName);
-        loader.load();
-
-        return loader.getFileBuffer();
     }
 
     /**
@@ -308,7 +295,7 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
      *                                  and the folderName parameter does not exist, or is not a
      *                                  child of the 'upload' folder.
      */
-    private List<IEntry> getUploadFolderContents(String folderName) throws IOException {
+    private List<IEntry> getUploadFolderContents(String folderName) throws IllegalArgumentException, IOException {
         File uploadFolder = Paths.get(Configuration.getInstance().get("upload"), folderName).toFile();
 
         // Ensure the formed path is not a file
@@ -325,18 +312,24 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
             throw new FileNotFoundException("no such folder exists.");
         }
 
+        List<IEntry> entries = new ArrayList<>();
+        File[] files = uploadFolder.listFiles();
 
-        List<IEntry> files = new ArrayList<>();
+        // Don't bother attempting loop through the directory entries if the
+        // system folder was empty or couldn't be listed due to permissions.
+        if (files == null) {
+            return entries;
+        }
 
         // Loop through each entry in the upload folder and convert them into FileEntry objects
-        for (File file : Objects.requireNonNull(uploadFolder.listFiles())) {
+        for (var file : files) {
             if (file.isFile()) {
-                files.add(new FileEntry(file.toPath()));
+                entries.add(new FileEntry(file.toPath()));
             } else {
-                files.add(new DirectoryEntry(file.toPath()));
+                entries.add(new DirectoryEntry(file.toPath()));
             }
         }
 
-        return files;
+        return entries;
     }
 }

@@ -7,8 +7,8 @@ package common.protocol;
  * @author 200008575
  * */
 public enum Command {
-    Get,
+    GetMeta,
     List,
-    Download,
+    Get,
 }
 

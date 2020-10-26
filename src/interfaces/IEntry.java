@@ -17,7 +17,7 @@ public interface IEntry {
      *
      * @return A {@link EntryType}, representing if it's a file or a directory.
      * */
-    EntryType getType();
+    String getType();
 
     /**
      * Method to get the path of a file system entry.
@@ -25,4 +25,10 @@ public interface IEntry {
      * @return A {@link Path} that points to the entry resource.
      * */
     Path getPath();
+
+
+    /**
+     * Method used to return the top leaf of the entry's path.
+     * */
+    String getFileName();
 }

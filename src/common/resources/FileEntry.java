@@ -1,5 +1,6 @@
 package common.resources;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import interfaces.IEntry;
 
 import java.io.ByteArrayOutputStream;
@@ -18,7 +19,15 @@ public class FileEntry implements IEntry {
     /**
      * Variable that represents the path that points to the resource.
      * */
+    @JsonIgnore
     private final Path path;
+
+    /**
+     * Variable to denote whether the file has been loaded into memory or not.
+     * This is only set internally.
+     * */
+    @JsonIgnore
+    private boolean isLoaded;
 
     /**
      * The computed MD5 digest of the resource.
@@ -34,6 +43,7 @@ public class FileEntry implements IEntry {
      * The output stream of the resource when it needs to be converted into
      * a byte array.
      * */
+    @JsonIgnore
     private ByteArrayOutputStream fileBuffer;
 
     /**
@@ -62,7 +72,7 @@ public class FileEntry implements IEntry {
      * Method that loads the resource. This method will also compute the size and digest of
      * the provided resource.
      * */
-    public void load() {
+    public void load() throws IOException {
         this.fileBuffer = new ByteArrayOutputStream();
 
         try (
@@ -85,8 +95,8 @@ public class FileEntry implements IEntry {
             this.digest = md.digest();
             this.size = fileBuffer.size();
 
-
-        } catch (IOException | NoSuchAlgorithmException e) {
+            this.isLoaded = true;
+        } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
     }
@@ -126,8 +136,8 @@ public class FileEntry implements IEntry {
      * @return A {@link EntryType}, representing the file type.
      * */
     @Override
-    public EntryType getType() {
-        return EntryType.File;
+    public String getType() {
+        return EntryType.File.toString();
     }
 
     /**
@@ -137,5 +147,18 @@ public class FileEntry implements IEntry {
      * */
     public Path getPath() {
         return this.path;
+    }
+
+    /**
+     * Utility method to fetch the top name of the file path
+     *
+     * @return The name of the leaf in the file path
+     * */
+    public String getFileName() {
+        return this.path.getFileName().toString();
+    }
+
+    public boolean isLoaded() {
+        return isLoaded;
     }
 }

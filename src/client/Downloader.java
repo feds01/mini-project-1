@@ -82,7 +82,7 @@ public class Downloader extends BaseConnection implements Runnable {
 
         // get the important metadata from the info object
         this.downloadLocation = downloadLocation;
-        this.fileName = info.get("file").asText();
+        this.fileName = info.get("fileName").asText();
         this.size = info.get("size").asLong();
         this.digest = Base64.getDecoder().decode(info.get("digest").asText());
     }
@@ -132,7 +132,7 @@ public class Downloader extends BaseConnection implements Runnable {
         try {
             while (!Arrays.equals(this.digest, localDigest) && this.running.get()) {
                 // Send a request to the server to send the file as a byte array stream
-                this.printWriter.printf("%s %s%n", Command.Download, this.fileName);
+                this.printWriter.printf("%s %s%n", Command.Get, this.fileName);
 
                 // Download the file using the function
                 var file = downloadFile(downloadLocation.toString());
