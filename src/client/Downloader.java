@@ -1,6 +1,7 @@
 package client;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import common.BaseConnection;
 import common.protocol.Command;
 import common.resources.FileEntry;
 
@@ -126,7 +127,7 @@ public class Downloader extends BaseConnection implements Runnable {
         try {
             while (!Arrays.equals(this.digest, localDigest) && this.running.get()) {
                 // Send a request to the server to send the file as a byte array stream
-                super.outputStream.printf("%s %s%n", Command.Download, this.fileName);
+                this.printWriter.printf("%s %s%n", Command.Download, this.fileName);
 
                 // Download the file using the function
                 var file = downloadFile(downloadLocation.toString());
@@ -147,7 +148,7 @@ public class Downloader extends BaseConnection implements Runnable {
         } catch (IOException e) {
             this.status = DownloaderStatus.FAILED;
         }  finally {
-            super.cleanup();
+            this.cleanup();
         }
     }
 
@@ -178,7 +179,7 @@ public class Downloader extends BaseConnection implements Runnable {
         ) {
 
             // Again, probably better to store these objects references in the support class
-            DataInputStream dis = new DataInputStream(super.socket.getInputStream());
+            DataInputStream dis = new DataInputStream(this.socket.getInputStream());
 
             int current = 0;
 

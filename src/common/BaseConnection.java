@@ -1,6 +1,4 @@
-package client;
-
-import common.Configuration;
+package common;
 
 import java.io.*;
 import java.net.ConnectException;
@@ -43,13 +41,13 @@ public abstract class BaseConnection {
     /**
      * The output stream of the connection that the ConnectionHandler is managing.
      */
-    protected PrintWriter outputStream;
+    protected PrintWriter printWriter;
 
     /**
      * The reader of the input stream which is used to listen for commands from the
      * peer connection.
      */
-    protected BufferedReader inputStream;
+    protected BufferedReader bufferedReader;
 
     /**
      *
@@ -67,8 +65,8 @@ public abstract class BaseConnection {
             this.socket.setSoTimeout(CONNECTION_TIMEOUT); // set the connection timeout to our defined time.
 
             // open the socket streams
-            this.inputStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            this.outputStream = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
+            this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            this.printWriter = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
 
         } catch (UnknownHostException | ConnectException e) {
             System.out.println("Unknown host.");
@@ -80,11 +78,28 @@ public abstract class BaseConnection {
         }
     }
 
+    /**
+     * Initialise the BaseConnection with a pre-existing socket.
+     * */
     public BaseConnection(Socket socket) {
-        this.socket = socket;
-
         this.port = socket.getLocalPort();
         this.host = socket.getInetAddress().getHostName();
+
+        try {
+            this.socket = socket;
+
+            // open the socket streams
+            this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            this.printWriter = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
+
+        } catch (UnknownHostException | ConnectException e) {
+            System.out.println("Unknown host.");
+        } catch (Exception e) {
+            System.out.printf("Lost Connection to %s:%s%n", host, port);
+            e.printStackTrace();
+
+            this.cleanup();
+        }
     }
 
     /**
@@ -92,8 +107,8 @@ public abstract class BaseConnection {
      */
     public void cleanup() {
         try {
-            if (inputStream != null) inputStream.close();
-            if (outputStream != null) outputStream.close();
+            if (bufferedReader != null) bufferedReader.close();
+            if (printWriter != null) printWriter.close();
             if (socket != null) socket.close();
         } catch (IOException e) {
             e.printStackTrace();

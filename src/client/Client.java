@@ -2,6 +2,7 @@ package client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import common.BaseConnection;
 import common.protocol.Command;
 
 import java.io.*;
@@ -48,19 +49,24 @@ public class Client extends BaseConnection {
         JsonNode response = mapper.createObjectNode();
 
         // Send over command with any additional arguments that are all separated by whitespaces.
-        super.outputStream.println(String.format("%s %s", command, String.join(" ", args)));
+        this.printWriter.println(String.format("%s %s", command, String.join(" ", args)));
 
         try {
-            var content = super.inputStream.readLine();
+            var content = this.bufferedReader.readLine();
+
+            // If the content returns as null, this means that the socket died...
+            if (content == null) {
+                throw new SocketTimeoutException("Socket timeout out.");
+            }
 
             response = mapper.readTree(content);
-        } catch (SocketException e) {
+        } catch (SocketException | SocketTimeoutException e) {
             // When the stream throws a SocketException, this means that server
             // unexpectedly severed our connection. This could mean that the server
             // died or close the connection. In this case, we'll report this to the
             // user and invoke a clean-up operation.
-            System.out.printf("Couldn't send '%s' command. Lost Connection to %s:%s%n", command, super.host, super.port);
-            super.cleanup();
+            System.out.printf("Couldn't send '%s' command. Lost Connection to %s:%s%n", command, this.host, this.port);
+            this.cleanup();
 
             return null;
         } catch (IOException e) {

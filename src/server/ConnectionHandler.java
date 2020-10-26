@@ -2,6 +2,7 @@ package server;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import common.BaseConnection;
 import common.Configuration;
 import common.DisconnectedException;
 import common.protocol.Command;
@@ -11,6 +12,7 @@ import interfaces.IEntry;
 
 import java.io.*;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -27,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * @author 200008575
  */
-public class ConnectionHandler extends Thread {
+public class ConnectionHandler extends BaseConnection implements Runnable {
     /**
      * An instance of a Jackson ObjectMapper, used to serialize data that
      * will be transmitted through the socket to the peer in order to transmit
@@ -41,25 +43,9 @@ public class ConnectionHandler extends Thread {
     private final Configuration config = Configuration.getInstance();
 
     /**
-     * The socket that the connection is interacting with.
+     * The thread instance that is used to run the downloader instance on.
      */
-    private final Socket socket;
-
-    /**
-     * The input stream of the connection that the ConnectionHandler is managing.
-     */
-    private InputStream inputStream;
-
-    /**
-     * The output stream of the connection that the ConnectionHandler is managing.
-     */
-    private PrintWriter outputStream;
-
-    /**
-     * The reader of the input stream which is used to listen for commands from the
-     * peer connection.
-     */
-    private BufferedReader reader;
+    private Thread worker;
 
     /**
      * Variable to hold the running status of the ConnectionHandler instance. This
@@ -72,8 +58,8 @@ public class ConnectionHandler extends Thread {
     /**
      * Constructor method for the ConnectionHandler class.
      */
-    public ConnectionHandler(Socket connection) {
-        this.socket = connection;
+    public ConnectionHandler(Socket socket) {
+        super(socket);
     }
 
     /**
@@ -86,14 +72,30 @@ public class ConnectionHandler extends Thread {
         this.running.set(true);
 
         try {
-            this.inputStream = socket.getInputStream();
-            this.outputStream = new PrintWriter(socket.getOutputStream(), true);
-            this.reader = new BufferedReader(new InputStreamReader(this.inputStream));
-
             this.listen();
-        } catch (IOException | NullPointerException | DisconnectedException e) {
+        } catch (Exception e) {
             this.cleanup();
+
+            // If the socket timed out, stop the thread...
+            if (e instanceof SocketTimeoutException) {
+                this.stop();
+            }
         }
+    }
+
+    /**
+     * Method to start the ConnectionHandler.
+     */
+    public void start() {
+        worker = new Thread(this);
+        worker.start();
+    }
+
+    /**
+     * Method to return if the worker is still alive
+     * */
+    public boolean isAlive() {
+        return this.worker.isAlive();
     }
 
     /**
@@ -101,9 +103,9 @@ public class ConnectionHandler extends Thread {
      * will set the running status of the thread to false, and then interrupt the
      * thread.
      */
-    public void shutdown() {
-        this.running.set(false);
-        this.interrupt();
+    public void stop() {
+        running.set(false);
+        worker.interrupt();
     }
 
     /**
@@ -127,7 +129,7 @@ public class ConnectionHandler extends Thread {
             // treated as arguments that complement the command. For example, if the requester
             // send the request "Get file_a.txt", then the server should perform the get
             // command with the file argument as 'file_a.txt'.
-            var request = reader.readLine().split(" ");
+            var request = this.bufferedReader.readLine().split(" ");
             var command = Command.valueOf(request[0]);
 
             // if readLine fails we can deduce here that the connection to the client is broken
@@ -218,7 +220,7 @@ public class ConnectionHandler extends Thread {
             }
 
             // Finally, convert the response into a byte array and send it to the client.
-            outputStream.println(mapper.writeValueAsString(response));
+            this.printWriter.println(mapper.writeValueAsString(response));
         }
 
         // Invoke the clean-up function after the listener finishes it's work, or gets
@@ -276,6 +278,8 @@ public class ConnectionHandler extends Thread {
         } catch (InvalidPathException e) {
             response.put("status", false);
             response.put("message", "Invalid file path");
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
         return response;
@@ -340,19 +344,5 @@ public class ConnectionHandler extends Thread {
         }
 
         return files;
-    }
-
-    /**
-     * Method that will close the socket and input streams that the ConnectionHandler
-     * instance still has open.
-     */
-    private void cleanup() {
-        try {
-            reader.close();
-            inputStream.close();
-            socket.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 }

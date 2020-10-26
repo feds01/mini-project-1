@@ -216,8 +216,8 @@ public class Commander {
                         var downloadPath = Downloader.getPathForResource(response.get("file").asText());
 
                         // This is of course a very edge case scenario, but nevertheless a potential issue...
-                        if (downloadPath.toFile().getFreeSpace() < size) {
-                            return "No enough space on download folder drive to download file.";
+                        if (downloadPath.getParent().toFile().getFreeSpace() < size) {
+                            return "Not enough space on download folder drive to download file.";
                         }
 
                         // spin up a downloader instance and start downloading the resource.

@@ -237,7 +237,7 @@ public class Server implements Runnable {
     private void cleanup() {
         try {
             // check if we need to close any pending connections.
-            this.connections.forEach(ConnectionHandler::shutdown);
+            this.connections.forEach(ConnectionHandler::stop);
 
             if (serverSocket != null) {
                 serverSocket.close();
