@@ -11,9 +11,11 @@ import interfaces.IEntry;
 
 import java.io.*;
 import java.net.Socket;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -35,7 +37,7 @@ public class ConnectionHandler extends Thread {
 
     /**
      * Instance of the configuration object which is used to get application settings.
-     * */
+     */
     private final Configuration config = Configuration.getInstance();
 
     /**
@@ -44,7 +46,7 @@ public class ConnectionHandler extends Thread {
     private final Socket socket;
 
     /**
-     *  The input stream of the connection that the ConnectionHandler is managing.
+     * The input stream of the connection that the ConnectionHandler is managing.
      */
     private InputStream inputStream;
 
@@ -111,12 +113,12 @@ public class ConnectionHandler extends Thread {
      * the socket output stream (PrinterWriter) in the form of a line. However, if the request
      * is asking to download a resource, the byte array is written to a DataOutputStream
      * and no response object is returned.
-     *
+     * <p>
      * If the command is not valid or isn't part of the transmission protocol, a response is still
      * returned to notify the peer that the request was invalid.
      *
      * @throws DisconnectedException if the peer disconnects unexpectedly
-     * @throws IOException if the peer connection drops whilst writing to an output stream.
+     * @throws IOException           if the peer connection drops whilst writing to an output stream.
      */
     private void listen() throws DisconnectedException, IOException {
         while (this.running.get()) {
@@ -152,15 +154,15 @@ public class ConnectionHandler extends Thread {
                         for (IEntry entry : this.getUploadFolderContents(listArg)) {
                             var fileEntry = mapper.createObjectNode();
 
-
                             // append metadata about the objects in the
                             fileEntry.put("type", entry.getType().toString());
                             fileEntry.put("path", entry.getPath().getFileName().toString());
 
                             fileList.add(fileEntry);
-                            // set the data into the response.
-                            response.set("files", fileList);
                         }
+
+                        // set the data into the response.
+                        response.set("files", fileList);
 
                         response.put("status", true);
                     } catch (FileNotFoundException e) {
@@ -174,17 +176,30 @@ public class ConnectionHandler extends Thread {
                     break;
                 }
                 case Get: {
-                    var filePath = request.length > 1 ? request[1] : null;
+                    String filePath = null;
+
+                    // If the get request has additional arguments, this means that it is a filename.
+                    // Filenames may contain spaces on them, so assume that the arguments to the get
+                    // command is a single filename.
+                    if (request.length > 1) {
+                        filePath = String.join(" ", Arrays.copyOfRange(request, 1, request.length));
+                    }
+
                     response = getFileMetadata(filePath);
 
                     break;
                 }
                 case Download: {
-                    var filePath = request.length > 1 ? request[1] : null;
+                    String filePath = null;
+
+                    if (request.length > 1) {
+                        filePath = String.join(" ", Arrays.copyOfRange(request, 1, request.length));
+                    }
+
                     response = getFileMetadata(filePath);
 
                     if (response.get("status").asBoolean()) {
-                        var file = new File(String.valueOf(Paths.get(config.get("upload"), request[1])));
+                        var file = new File(String.valueOf(Paths.get(config.get("upload"), filePath)));
                         var out = new DataOutputStream(this.socket.getOutputStream());
 
                         var fileBuffer = this.loadFile(file.toPath());
@@ -219,7 +234,6 @@ public class ConnectionHandler extends Thread {
      * The constructed object also holds a status of if the 'request' was valid or not.
      *
      * @param filePath - The path to the file that the method should get metadata on.
-     *
      * @return An ObjectNode that represents the metadata of the given file
      */
     private ObjectNode getFileMetadata(String filePath) {
@@ -239,25 +253,30 @@ public class ConnectionHandler extends Thread {
         // of the upload folder scope. We will attempt to concatenate the
         // provided fileURI with our upload folder value. If the path
         // exists and is a file
-        var file = new File(String.valueOf(Paths.get(config.get("upload"), filePath)));
+        try {
+            var file = new File(String.valueOf(Paths.get(config.get("upload"), filePath)));
 
-        if (!file.getAbsolutePath().startsWith(config.get("upload")) || !file.exists()) {
-            response.put("message", "No such file exists.");
+            if (!file.getAbsolutePath().startsWith(config.get("upload")) || !file.exists()) {
+                response.put("message", "No such file exists.");
+                response.put("status", false);
+
+                return response;
+            }
+
+            // compute the size and md5 hash of the file, send the parameters to
+            // the requester as specified by the protocol...
+            var fileLoader = new FileEntry(Path.of(file.getAbsolutePath()));
+            fileLoader.load();
+
+            response.put("file", String.valueOf(fileLoader.getPath().getFileName()));
+            response.put("digest", fileLoader.getDigest());
+            response.put("size", fileLoader.getSize());
+            response.put("message", "Getting file...");
+            response.put("status", true);
+        } catch (InvalidPathException e) {
             response.put("status", false);
-
-            return response;
+            response.put("message", "Invalid file path");
         }
-
-        // compute the size and md5 hash of the file, send the parameters to
-        // the requester as specified by the protocol...
-        var fileLoader = new FileEntry(Path.of(file.getAbsolutePath()));
-        fileLoader.load();
-
-        response.put("file", String.valueOf(fileLoader.getPath().getFileName()));
-        response.put("digest", fileLoader.getDigest());
-        response.put("size", fileLoader.getSize());
-        response.put("message", "Getting file...");
-        response.put("status", true);
 
         return response;
     }
@@ -267,7 +286,6 @@ public class ConnectionHandler extends Thread {
      * Method to load a file into memory in the form of a byte array.
      *
      * @param fileName - The path to the file that will be loaded into memory.
-     *
      * @throws IllegalArgumentException if the path to the file does not exist.
      */
     private byte[] loadFile(Path fileName) {
@@ -284,15 +302,13 @@ public class ConnectionHandler extends Thread {
      * methods that can retrieve metadata from the file like the size or compute the md5 hash.
      *
      * @param folderName - The relative path to a folder within the 'upload' folder that will be
-     *                     concatenated with the upload folder path to list the contents of the
-     *                     child directory.
-     *
+     *                   concatenated with the upload folder path to list the contents of the
+     *                   child directory.
      * @return A list of file/directory entries based on the location of the upload folder.
-     *
      * @throws IllegalArgumentException if the formed path is a file and not a folder.
-     * @throws FileNotFoundException if the result of combining the 'upload' folder path and
-     *                               and the folderName parameter does not exist, or is not a
-     *                               child of the 'upload' folder.
+     * @throws FileNotFoundException    if the result of combining the 'upload' folder path and
+     *                                  and the folderName parameter does not exist, or is not a
+     *                                  child of the 'upload' folder.
      */
     private List<IEntry> getUploadFolderContents(String folderName) throws IOException {
         File uploadFolder = Paths.get(Configuration.getInstance().get("upload"), folderName).toFile();

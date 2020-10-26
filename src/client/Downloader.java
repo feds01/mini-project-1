@@ -147,7 +147,7 @@ public class Downloader extends BaseConnection implements Runnable {
             this.startSignal.countDown();
 
             while (!Arrays.equals(this.digest, localDigest) && this.running.get()) {
-                super.outputStream.printf("%s %s%n", Command.Download, this.filePath);
+                super.outputStream.printf("%s %s%n", Command.Download, this.fileName);
 
                 // Download the file using the function
                 var file = downloadFile(filePath.toString());
@@ -213,6 +213,13 @@ public class Downloader extends BaseConnection implements Runnable {
                 this.progress = ((float) current / this.size) * 100f;
             }
 
+            // @Workaround: What if the file that was being downloaded has a size of zero?
+            // We'll check it here, and if this is the case we will just set the progress
+            // to 100.0% since we still need to create the file on the local file system.
+            if (this.size == 0) {
+                this.progress = 100f;
+            }
+
             // finally, write it to the output stream...
             bufferedOutputStream.write(fileBuffer, 0, (int) this.size);
             bufferedOutputStream.flush();
@@ -238,7 +245,7 @@ public class Downloader extends BaseConnection implements Runnable {
      */
     private Path getPathForResource() {
         // create an output stream for the file in the 'downloads' folder.
-        var originalFileOutputUri = Paths.get(BaseConnection.config.get("download"), Path.of(this.fileName).getFileName().toString());
+        var originalFileOutputUri = Paths.get(BaseConnection.config.get("download"), this.fileName);
         var fileOutputURI = originalFileOutputUri;
 
         // check if the file already exists on our side, otherwise attempt to add a suffix
