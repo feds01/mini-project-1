@@ -5,7 +5,12 @@ import common.BaseConnection;
 import common.protocol.Command;
 import common.resources.FileEntry;
 
-import java.io.*;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -72,7 +77,7 @@ public class Downloader extends BaseConnection implements Runnable {
      * @param info - Information received from the peer about the downloaded
      *             resource that will be used to download the current file.
      */
-    public Downloader(String host, int port, Path downloadLocation, JsonNode info) {
+    public Downloader(String host, int port, Path downloadLocation, JsonNode info) throws IOException {
         super(host, port);
 
         // get the important metadata from the info object

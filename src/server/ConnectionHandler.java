@@ -59,7 +59,7 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
     /**
      * Constructor method for the ConnectionHandler class.
      */
-    public ConnectionHandler(Socket socket) {
+    public ConnectionHandler(Socket socket) throws IOException {
         super(socket);
     }
 

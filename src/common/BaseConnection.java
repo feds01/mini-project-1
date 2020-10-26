@@ -1,9 +1,11 @@
 package common;
 
-import java.io.*;
-import java.net.ConnectException;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.Socket;
-import java.net.UnknownHostException;
 
 /**
  * Abstract base class for a generic connection that involves a socket connection.
@@ -50,56 +52,35 @@ public abstract class BaseConnection {
     protected BufferedReader bufferedReader;
 
     /**
-     *
      * Constructor method for a BaseConnection. The method will initialise the socket
      * and open the socket I/O streams ready for classes that build on the abstract class
      * to use.
      */
-    public BaseConnection(String host, int port) {
+    public BaseConnection(String host, int port) throws IOException {
         this.host = host;
         this.port = port;
 
+        this.socket = new Socket(host, port);
+        this.socket.setSoTimeout(CONNECTION_TIMEOUT); // set the connection timeout to our defined time.
 
-        try {
-            this.socket = new Socket(host, port);
-            this.socket.setSoTimeout(CONNECTION_TIMEOUT); // set the connection timeout to our defined time.
-
-            // open the socket streams
-            this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            this.printWriter = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
-
-        } catch (UnknownHostException | ConnectException e) {
-            System.out.println("Unknown host.");
-        } catch (Exception e) {
-            System.out.printf("Lost Connection to %s:%s%n", host, port);
-            e.printStackTrace();
-
-            this.cleanup();
-        }
+        // open the socket streams
+        this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        this.printWriter = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
     }
 
     /**
      * Initialise the BaseConnection with a pre-existing socket.
-     * */
-    public BaseConnection(Socket socket) {
+     */
+    public BaseConnection(Socket socket) throws IOException {
         this.port = socket.getLocalPort();
         this.host = socket.getInetAddress().getHostName();
 
-        try {
-            this.socket = socket;
+        this.socket = socket;
 
-            // open the socket streams
-            this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            this.printWriter = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
+        // open the socket streams
+        this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        this.printWriter = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
 
-        } catch (UnknownHostException | ConnectException e) {
-            System.out.println("Unknown host.");
-        } catch (Exception e) {
-            System.out.printf("Lost Connection to %s:%s%n", host, port);
-            e.printStackTrace();
-
-            this.cleanup();
-        }
     }
 
     /**
@@ -131,5 +112,17 @@ public abstract class BaseConnection {
      */
     public String getHost() {
         return host;
+    }
+
+
+    /**
+     * This method combines the host and the port of the current
+     * connection into an IPv4 address format.
+     *
+     * @return A String representing the address based of the connection's
+     * host and port
+     */
+    public String getAddress() {
+        return this.host + ":" + this.port;
     }
 }

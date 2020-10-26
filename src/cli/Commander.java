@@ -10,6 +10,8 @@ import common.protocol.Command;
 import server.Peer;
 import server.Server;
 
+import java.io.IOException;
+import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.file.InvalidPathException;
@@ -88,7 +90,11 @@ public class Commander {
         var addr = InetAddress.getLocalHost();
         var localAddress = addr.getHostAddress() + ":" + server.getPort();
 
-        this.knownPeers.put(localAddress, new Peer(localAddress, addr.getHostName()));
+        // This is reference to our own instance
+        var self = new Peer(localAddress, addr.getHostName(), true);
+        this.knownPeers.put(localAddress, self);
+
+        self.setSelf(true);
 
         // print the initial line of the cli
         System.out.print("> ");
@@ -139,19 +145,22 @@ public class Commander {
                 try {
                     var addr = Networking.parseAddressFromString(command[1]);
 
-                    // ensure that the address isn't null
-                    assert addr != null;
-
                     this.client = new Client(addr.getHostName(), addr.getPort());
 
                     // If we successfully connect to the other peer, this means that we can add them
                     // as a known peer for other peers to know about them
-                    this.addKnownPeer(new Peer(command[1], this.client.getHost()));
+                    this.addKnownPeer(new Peer(command[1], this.client.getHost(), true));
 
                 } catch (IllegalArgumentException e) {
+                    // If the address is invalid, the message will be returned
                     return e.getMessage();
+                } catch (UnknownHostException | ConnectException e) {
+                    this.client = null;
+                    return "Unknown host.";
+                } catch (IOException e) {
+                    this.client = null;
+                    return "Couldn't establish connection with peer.";
                 }
-
                 break;
             }
             case "quit": {
@@ -187,10 +196,9 @@ public class Commander {
                     var printer = new ResourceTable(response);
 
                     printer.print();  // Use a printer function provided by resource list.
-                } else {
-                    assert response != null;
-
-                    return response.get("message").asText();
+                } else if (response == null) {
+                    // Set this connection as a 'dead' connection in knownPeers
+                    this.knownPeers.get(this.client.getAddress()).setAlive(false);
                 }
 
                 break;
@@ -210,7 +218,7 @@ public class Commander {
                 // later verify the integrity of the file...
                 var response = this.client.sendCommand(Command.Get, Arrays.copyOfRange(command, 1, command.length));
 
-                if (response.get("status").asBoolean()) {
+                if (response != null && response.get("status").asBoolean()) {
                     var size = response.get("size").asLong();
 
                     // we need to check that the partition or disk that the download folder
@@ -237,11 +245,12 @@ public class Commander {
                         this.downloads.add(downloader);
                     } catch (InvalidPathException e) { // This is thrown when
                         return "Download folder doesn't exist. Aborting download!";
+                    } catch (IOException e) {
+                        return "Couldn't establish connection with peer.";
                     }
-                } else {
-                    // the response always returns the status of the request that can be used to
-                    // inform the state of the request.
-                    System.out.println(response.get("message").asText());
+                } else if (response == null) {
+                    // Set this connection as a 'dead' connection in knownPeers
+                    this.knownPeers.get(this.client.getAddress()).setAlive(false);
                 }
 
                 break;
@@ -289,7 +298,7 @@ public class Commander {
      * @param peer - The peer that will be added to the knownPeer list
      */
     public void addKnownPeer(Peer peer) {
-        this.knownPeers.put(peer.getAddress(), peer);
+        this.knownPeers.putIfAbsent(peer.getAddress(), peer);
     }
 
 

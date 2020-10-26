@@ -6,7 +6,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import common.Configuration;
 
 import java.io.IOException;
-import java.net.*;
+import java.net.BindException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -222,10 +227,15 @@ public class Server implements Runnable {
     private void addConnection(Socket socket) {
 
         // create new handler for this connection
-        var connection = new ConnectionHandler(socket);
-        connection.start();
+        try {
+            var connection = new ConnectionHandler(socket);
+            connection.start();
 
-        this.connections.add(connection);
+            this.connections.add(connection);
+        } catch (IOException e) {
+            // Ignore IOExceptions from creating a new ConnectionHandler
+            // since we can just skip adding it at all.
+        }
     }
 
 

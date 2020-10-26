@@ -1,5 +1,7 @@
 package server;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 /**
  * Class to hold metadata on a potential peer
  *
@@ -17,7 +19,22 @@ public class Peer {
     private String name;
 
     /**
-     *
+     * Variable to represent if this peer entry references the current instance
+     * of the application. We don't need to transmit this value to other peers
+     * because other peers will all also return that they are their own connection.
+     * This value is used for internal representation.
+     */
+    @JsonIgnore
+    private boolean isSelf = false;
+
+    /**
+     * Variable to represent if the connection was observed to be
+     * dead or alive,
+     */
+    boolean isAlive = true;
+
+    /**
+     * Default constructor that can be used by Jackson for data de-serialization
      */
     public Peer() {
         super();
@@ -27,9 +44,10 @@ public class Peer {
     /**
      *
      */
-    public Peer(String address, String name) {
+    public Peer(String address, String name, boolean isAlive) {
         this.address = address;
         this.name = name;
+        this.isAlive = isAlive;
     }
 
     /**
@@ -37,6 +55,14 @@ public class Peer {
      */
     public String getName() {
         return name;
+    }
+
+    public void setSelf(boolean isSelf) {
+        this.isSelf = isSelf;
+    }
+
+    public void setAlive(boolean isAlive) {
+        this.isAlive = isAlive;
     }
 
     /**
@@ -51,6 +77,15 @@ public class Peer {
      */
     @Override
     public String toString() {
-        return String.format("Peer at %s on %s", address, name);
+        var sb = new StringBuilder();
+
+        sb.append(String.format("(%s) Peer at %s on %s ", isAlive ? "RUNNING" : "DEAD",  address, name));
+
+        // Add a label of 'self' to denote that this is our own connection.
+        if (this.isSelf) {
+            sb.append("(self)");
+        }
+
+        return sb.toString();
     }
 }

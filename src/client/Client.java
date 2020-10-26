@@ -5,8 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import common.BaseConnection;
 import common.protocol.Command;
 
-import java.io.*;
-import java.net.*;
+import java.io.IOException;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 
 /**
  * Client class that is used to relay requests to the connected
@@ -27,7 +28,7 @@ public class Client extends BaseConnection {
      * @param host - The hostname of the peer
      * @param port - The port on the hostname of the peer
      * */
-    public Client(String host, int port) {
+    public Client(String host, int port) throws IOException {
         super(host, port);
     }
 

@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
  * Class that holds utility networking methods that the application uses.
  *
  * @author 200008575
- * */
+ */
 public class Networking {
     /**
      * Method used to acquire a free port on the system by starting a socket
@@ -19,10 +19,9 @@ public class Networking {
      * immediately close it and return the port number. This method was used from
      * an online source.
      *
-     * @see <a href="https://stackoverflow.com/a/2675416/9955666">https://stackoverflow.com/a/2675416/9955666</a>
-     *
      * @return the number of the free port.
-     * */
+     * @see <a href="https://stackoverflow.com/a/2675416/9955666">https://stackoverflow.com/a/2675416/9955666</a>
+     */
     public static int getFreePort() {
         int port = 0;
 
@@ -49,26 +48,20 @@ public class Networking {
      * the address.
      *
      * @param address The string representation of an IPv4 address.
-     *
      * @return A {@link InetSocketAddress} which is formed from the string address.
-     *
      * @throws IllegalArgumentException if the string is not recognised as an
      *                                  IPv4 address.
-     * */
+     */
     public static InetSocketAddress parseAddressFromString(String address) {
         var pattern = Pattern.compile("(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}):(\\d+)");
         var matcher = pattern.matcher(address);
 
         if (matcher.matches()) {
-            if (matcher.group(1) != null && matcher.group(2) != null) {
-                int port = Integer.parseInt(matcher.group(2));
+            int port = Integer.parseInt(matcher.group(2));
 
-                return new InetSocketAddress(matcher.group(1), port);
-            }
+            return new InetSocketAddress(matcher.group(1), port);
         } else {
             throw new IllegalArgumentException("Invalid address.");
         }
-
-        return null;
     }
 }
