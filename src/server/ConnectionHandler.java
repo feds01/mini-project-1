@@ -211,12 +211,20 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
                     }
 
                     var out = new DataOutputStream(this.socket.getOutputStream());
-                    var fileBuffer = resource.getFileBuffer();
+                    var in = resource.getInputStream();
 
                     // write the file buffer to the DataOutputStream, flush it and immediately
                     // close it since we aren't going to need to use it anymore.
-                    out.write(fileBuffer, 0, fileBuffer.length);
+                    int count;
+                    byte[] buffer = new byte[1024];
+
+                    while ((count = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, count);
+                    }
+
                     out.flush();
+
+                    in.close();
                     out.close();
                 }
             }

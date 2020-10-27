@@ -3,7 +3,6 @@ package common.resources;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import interfaces.IEntry;
 
-import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -23,13 +22,6 @@ public class FileEntry implements IEntry {
     private final Path path;
 
     /**
-     * Variable to denote whether the file has been loaded into memory or not.
-     * This is only set internally.
-     * */
-    @JsonIgnore
-    private boolean isLoaded;
-
-    /**
      * The computed MD5 digest of the resource.
      * */
     private byte[] digest;
@@ -38,13 +30,6 @@ public class FileEntry implements IEntry {
      * The size in bytes of the resource.
      * */
     private long size;
-
-    /**
-     * The output stream of the resource when it needs to be converted into
-     * a byte array.
-     * */
-    @JsonIgnore
-    private ByteArrayOutputStream fileBuffer;
 
     /**
      * Class constructor.
@@ -73,29 +58,26 @@ public class FileEntry implements IEntry {
      * the provided resource.
      * */
     public void load() throws IOException {
-        this.fileBuffer = new ByteArrayOutputStream();
-
         try (
                 var fileStream = new FileInputStream(String.valueOf(path))
         ) {
             var md = MessageDigest.getInstance("MD5");
+
             byte[] buffer = new byte[1024];
-            int numRead;
+            int count;
 
             // Update our digest with the processed digest of the file stream.
             do {
-                numRead = fileStream.read(buffer);
-                if (numRead > 0) {
-                    fileBuffer.write(buffer);
-                }
-            } while (numRead != -1);
+                count = fileStream.read(buffer);
+                if (count > 0) {
 
-            md.update(fileBuffer.toByteArray());
+                    this.size += count;
+                    md.update(buffer);
+                }
+            } while (count != -1);
 
             this.digest = md.digest();
-            this.size = fileBuffer.size();
 
-            this.isLoaded = true;
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
@@ -124,8 +106,9 @@ public class FileEntry implements IEntry {
      *
      * @return The byte array representing the file.
      * */
-    public byte[] getFileBuffer() {
-        return fileBuffer.toByteArray();
+    @JsonIgnore
+    public FileInputStream getInputStream() throws IOException {
+        return new FileInputStream(String.valueOf(path));
     }
 
 
@@ -145,6 +128,7 @@ public class FileEntry implements IEntry {
      *
      * @return A {@link Path} that points to the entry resource.
      * */
+    @JsonIgnore
     public Path getPath() {
         return this.path;
     }
@@ -156,9 +140,5 @@ public class FileEntry implements IEntry {
      * */
     public String getFileName() {
         return this.path.getFileName().toString();
-    }
-
-    public boolean isLoaded() {
-        return isLoaded;
     }
 }
