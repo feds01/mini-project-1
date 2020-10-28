@@ -1,6 +1,8 @@
 package common.resources;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.sun.security.jgss.GSSUtil;
+import common.Configuration;
 import interfaces.IEntry;
 
 import java.io.FileInputStream;
@@ -18,7 +20,6 @@ public class FileEntry implements IEntry {
     /**
      * Variable that represents the path that points to the resource.
      * */
-    @JsonIgnore
     private final Path path;
 
     /**
@@ -124,11 +125,10 @@ public class FileEntry implements IEntry {
     }
 
     /**
-     * Method to get the path of the file.
+     * Method to get the path of the file entry.
      *
      * @return A {@link Path} that points to the entry resource.
      * */
-    @JsonIgnore
     public Path getPath() {
         return this.path;
     }

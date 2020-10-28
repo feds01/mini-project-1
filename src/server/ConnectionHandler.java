@@ -1,9 +1,11 @@
 package server;
 
+import cli.Commander;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import common.BaseConnection;
 import common.Configuration;
+import common.Networking;
 import common.protocol.Command;
 import common.resources.DirectoryEntry;
 import common.resources.FileEntry;
@@ -136,6 +138,27 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
             var response = mapper.createObjectNode();
 
             switch (command) {
+                case AddPeer: {
+                    if (request.length < 2) {
+                        response.put("status", false);
+                        break;
+                    }
+
+                    try {
+                        var commander = Commander.getInstance();
+
+                        var addr = Networking.parseAddressFromString(request[1]);
+                        var peer = new Peer(request[1], addr.getHostName(), true);
+
+                        commander.addKnownPeer(peer);
+
+                    } catch (IllegalArgumentException e) {
+                        response.put("status", false);
+                        break;
+                    }
+
+                }
+
                 case List: {
                     var fileList = mapper.createArrayNode();
 
@@ -146,7 +169,7 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
                     var listArg = "";
 
                     if (request.length > 1) {
-                        listArg =  String.join(" ", Arrays.copyOfRange(request, 1, request.length));
+                        listArg = String.join(" ", Arrays.copyOfRange(request, 1, request.length));
                     }
 
                     // Iterate over the entry list and append the appropriate metadata on
@@ -196,6 +219,7 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
 
                     try {
                         resource = new FileEntry(Paths.get(config.get("upload"), relativeFilePath));
+
                     } catch (IllegalArgumentException e) {
                         response.put("message", "No such file exists.");
                         response.put("status", false);
@@ -203,6 +227,10 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
                     }
 
                     response = getFileMetadata(resource);
+
+                    // we have to overwrite response.path with a relative version of the path instead of
+                    // an absolute value
+                    response.put("path", relativeFilePath);
 
                     // Don't continue by downloading the file if it's only a metadata request, and don't
                     // continue if fetching the metadata failed for some reason.
@@ -270,6 +298,7 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
             // Serialize the FileEntry object, add a status to denote that the
             // request was successful.
             response = mapper.valueToTree(fileEntry);
+
             response.put("status", true);
 
 

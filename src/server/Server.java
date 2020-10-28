@@ -109,29 +109,36 @@ public class Server implements Runnable {
 
         this.connections.removeAll(deadConnections);
 
-        try {
-            // Broadcast a message to the broadcast socket.
-            var buffer = mapper.writeValueAsBytes(commander.getKnownPeers().values());
+        // Only attempt to broadcast if the Peer service started
+        if (!broadcastSocket.isClosed()) {
+            try {
+                // Broadcast a message to the broadcast socket.
+                var buffer = mapper.writeValueAsBytes(commander.getKnownPeers().values());
 
-            var packet = new DatagramPacket(buffer, buffer.length, broadcastGroup, Configuration.MULTICAST_PORT);
+                var packet = new DatagramPacket(buffer, buffer.length, broadcastGroup, Configuration.MULTICAST_PORT);
 
-            broadcastSocket.send(packet);
-        } catch (IOException e) {
-            e.printStackTrace();
+                broadcastSocket.send(packet);
+            } catch (IOException e) {
+                // Couldn't send the packet across to the broadcast socket, close this socket
+                // and don't attempt to send anything after.
+                this.broadcastSocket.close();
+            }
         }
     };
 
     /**
      * Server class constructor that instantiates the broadcast socket and group.
-     *
-     * @throws IOException if the instance fails to acquire a broadcasting group or socket.
      */
-    public Server(int port) throws IOException {
+    public Server(int port) {
         this.port = port;
 
         // Initiate our broadcast group address for finding peers on the local network.
-        this.broadcastSocket = new DatagramSocket();
-        this.broadcastGroup = InetAddress.getByName(Configuration.MULTICAST_GROUP);
+        try {
+            this.broadcastSocket = new DatagramSocket();
+            this.broadcastGroup = InetAddress.getByName(Configuration.MULTICAST_GROUP);
+        } catch (IOException e) {
+            System.out.println("Failed to start Peer broadcasting service.");
+        }
     }
 
     /**

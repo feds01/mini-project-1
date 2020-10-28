@@ -57,12 +57,21 @@ public class Peer {
         return name;
     }
 
+    @JsonIgnore
     public void setSelf(boolean isSelf) {
         this.isSelf = isSelf;
     }
 
     public void setAlive(boolean isAlive) {
         this.isAlive = isAlive;
+    }
+
+    /**
+     *
+     * */
+    @JsonIgnore
+    public boolean isSelf() {
+        return isSelf;
     }
 
     /**

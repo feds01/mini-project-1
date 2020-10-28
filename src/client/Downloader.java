@@ -11,6 +11,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -28,6 +29,11 @@ public class Downloader extends BaseConnection implements Runnable {
      * Name of the file
      */
     private final String fileName;
+
+    /**
+     * Relative path of the file to the upload folder on the server's end
+     * */
+    private final String path;
 
     /**
      * The path to the location where the resource will be saved
@@ -83,6 +89,7 @@ public class Downloader extends BaseConnection implements Runnable {
         // get the important metadata from the info object
         this.downloadLocation = downloadLocation;
         this.fileName = info.get("fileName").asText();
+        this.path = info.get("path").asText();
         this.size = info.get("size").asLong();
         this.digest = Base64.getDecoder().decode(info.get("digest").asText());
     }
@@ -132,7 +139,7 @@ public class Downloader extends BaseConnection implements Runnable {
         try {
             while (!Arrays.equals(this.digest, localDigest) && this.running.get()) {
                 // Send a request to the server to send the file as a byte array stream
-                this.printWriter.printf("%s %s%n", Command.Get, this.fileName);
+                this.printWriter.printf("%s %s%n", Command.Get, this.path);
 
                 // Download the file using the function
                 var file = downloadFile(downloadLocation.toString());
@@ -143,13 +150,18 @@ public class Downloader extends BaseConnection implements Runnable {
                 localDigest = fileEntry.getDigest();
 
                 if (!Arrays.equals(this.digest, localDigest)) {
-                    this.status = DownloaderStatus.MISMATCHING_SIGNATURE;
+                    this.status = DownloaderStatus.FAILED_MISMATCHING_SIGNATURE;
                 }
             }
 
             // Set the download status as completed and invoke the supper defined function to clean up
             // resources that are inherited from the connection base class.
             this.status = DownloaderStatus.FINISHED;
+        } catch (SocketTimeoutException e) {
+
+            // specify that the download failed because the connection with the server timed out.
+            this.status = DownloaderStatus.FAILED_TIMEOUT;
+
         } catch (IOException e) {
             this.status = DownloaderStatus.FAILED;
         }  finally {

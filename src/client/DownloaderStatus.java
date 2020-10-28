@@ -10,5 +10,6 @@ public enum DownloaderStatus {
     STARTED,
     FINISHED,
     FAILED,
-    MISMATCHING_SIGNATURE
+    FAILED_TIMEOUT,
+    FAILED_MISMATCHING_SIGNATURE
 }

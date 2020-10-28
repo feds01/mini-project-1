@@ -7,6 +7,7 @@ package common.protocol;
  * @author 200008575
  * */
 public enum Command {
+    AddPeer,
     GetMeta,
     List,
     Get,

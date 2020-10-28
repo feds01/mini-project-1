@@ -110,7 +110,7 @@ public class PeerReceiver extends Thread {
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            // Ignore this exception since we can just do everything silently.
         } finally {
             this.cleanup();
         }
@@ -126,6 +126,7 @@ public class PeerReceiver extends Thread {
             this.broadcastSocket.close();
         } catch (IOException e) {
             System.out.println("Peer listener couldn't finish gracefully.");
+            e.printStackTrace();
         }
     }
 }

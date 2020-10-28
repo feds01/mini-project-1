@@ -151,6 +151,17 @@ public class Commander {
                     // as a known peer for other peers to know about them
                     this.addKnownPeer(new Peer(command[1], this.client.getHost(), true));
 
+                    // Get ourselves from the peer list and send the item to the newly established connection
+                    // so that they know about this peer being present on the network
+                    var selfPeer = this.knownPeers.values()
+                            .stream()
+                            .filter(Peer::isSelf)
+                            .findFirst()
+                            .get()
+                            .getAddress();
+
+                    this.client.sendCommand(Command.AddPeer, selfPeer);
+
                 } catch (IllegalArgumentException e) {
                     // If the address is invalid, the message will be returned
                     return e.getMessage();
@@ -196,7 +207,8 @@ public class Commander {
                     var printer = new ResourceTable(response);
 
                     printer.print();  // Use a printer function provided by resource list.
-                } if (response != null && !response.get("status").asBoolean()) {
+                }
+                if (response != null && !response.get("status").asBoolean()) {
                     // If the request failed to get metadata for any reason, we should notify the client
                     return response.get("message").asText();
                 } else if (response == null) {
@@ -274,9 +286,14 @@ public class Commander {
                 for (var download : this.downloads) {
                     System.out.println(download.getProgressString());
 
-                    // Remove the downloader instance from the list when it finished
-                    // executing.
-                    if (download.getStatus().equals(DownloaderStatus.FINISHED)) {
+                    var status = download.getStatus();
+
+                    // Remove the downloader instance from the list when it finished or failed
+                    // because of a timeout, or just failed for some unknown I/O reason.
+                    if (status.equals(DownloaderStatus.FINISHED) ||
+                            status.equals(DownloaderStatus.FAILED) ||
+                            status.equals(DownloaderStatus.FAILED_TIMEOUT))
+                    {
                         completedDownloads.add(download);
                     }
                 }
