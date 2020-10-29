@@ -15,10 +15,7 @@ import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.file.InvalidPathException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -54,7 +51,7 @@ public class Commander {
     /**
      * This is an internal list of download instances that are being orchestrated by the server
      */
-    private final List<Downloader> downloads = new ArrayList<>();
+    private final Map<String, List<Downloader>> downloadMap = new HashMap<>();
 
     /**
      * Variable that holds the reference of this object that is used
@@ -236,6 +233,27 @@ public class Commander {
                 if (response != null && response.get("status").asBoolean()) {
                     var size = response.get("size").asLong();
 
+                    var clientDownloads = this.downloadMap.get(this.client.getAddress());
+
+                    // Check whether we have any ongoing downloads on the current client connection
+                    if (clientDownloads.size() > 0) {
+                        boolean isBeingDownloaded = false;
+
+
+                        // if the hash and path of the resource matches the current GetMeta request, we'll abort
+                        // this request and notify the user that they are already downloading the resource
+                        for (var download : clientDownloads) {
+                            if (download.getPath().equals(response.get("path").asText())) {
+                                isBeingDownloaded = true;
+                                break;
+                            }
+                        }
+
+                        if (isBeingDownloaded) {
+                            return "Resource already being downloaded. Use 'status' to check progress";
+                        }
+                    }
+
                     // we need to check that the partition or disk that the download folder
                     // is present on has enough free space (initially) to save the file.
                     // Otherwise, we won't be able to write the file onto the storage.
@@ -257,7 +275,7 @@ public class Commander {
                         downloader.start();
 
                         // append the downloader thread to our downloader list
-                        this.downloads.add(downloader);
+                        this.downloadMap.get(this.client.getAddress()).add(downloader);
                     } catch (InvalidPathException e) { // This is thrown when the download folder doesn't exist
                         return "Download folder doesn't exist. Aborting download!";
                     } catch (IOException e) {
@@ -277,28 +295,34 @@ public class Commander {
             }
             // Command to print the working status of any on-going downloads that are occurring.
             case "status": {
-                if (this.downloads.size() == 0) {
+                if (this.downloadMap.size() == 0) {
                     return "No active downloads.";
                 }
 
-                var completedDownloads = new ArrayList<Downloader>();
+                for (var host : this.downloadMap.keySet()) {
+                    var completedDownloads = new ArrayList<Downloader>();
 
-                for (var download : this.downloads) {
-                    System.out.println(download.getProgressString());
+                    for (var download : this.downloadMap.get(host)) {
+                        System.out.println(download.getProgressString());
 
-                    var status = download.getStatus();
+                        var status = download.getStatus();
 
-                    // Remove the downloader instance from the list when it finished or failed
-                    // because of a timeout, or just failed for some unknown I/O reason.
-                    if (status.equals(DownloaderStatus.FINISHED) ||
-                            status.equals(DownloaderStatus.FAILED) ||
-                            status.equals(DownloaderStatus.FAILED_TIMEOUT))
-                    {
-                        completedDownloads.add(download);
+                        // Remove the downloader instance from the list when it finished or failed
+                        // because of a timeout, or just failed for some unknown I/O reason.
+                        if (status.equals(DownloaderStatus.FINISHED) ||
+                                status.equals(DownloaderStatus.FAILED) ||
+                                status.equals(DownloaderStatus.FAILED_TIMEOUT)) {
+                            completedDownloads.add(download);
+                        }
+                    }
+
+                    this.downloadMap.get(host).removeAll(completedDownloads);
+
+                    // Remove the host entry if all of the downloads on this host finished.
+                    if (this.downloadMap.get(host).size() == 0) {
+                        this.downloadMap.remove(host);
                     }
                 }
-
-                this.downloads.removeAll(completedDownloads);
 
                 break;
             }
@@ -332,8 +356,8 @@ public class Commander {
      *
      * @return A list of Downloader objects
      */
-    public List<Downloader> getDownloads() {
-        return this.downloads;
+    public Map<String, List<Downloader>> getDownloadMap() {
+        return this.downloadMap;
     }
 
 

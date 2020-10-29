@@ -284,6 +284,26 @@ public class Downloader extends BaseConnection implements Runnable {
     }
 
     /**
+     * Method to get the digest of the resource that this object is downloading
+     *
+     * @return The resources digest
+     * */
+    public byte[] getDigest() {
+        return digest;
+    }
+
+
+    /**
+     * Method to get the path of the resource on the server's side. This path
+     * is relative to the server's upload folder.
+     *
+     * @return The resources path
+     * */
+    public String getPath() {
+        return path;
+    }
+
+    /**
      * Method to clean up any resources that the downloader still has open. The method will
      * also delete the file that it was writing the resource to if the status of the
      * downloader hasn't finished. It is deleted because that means that the resource didn't
