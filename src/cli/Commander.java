@@ -136,16 +136,16 @@ public class Commander {
         var command = commandString.split(" ");
 
         switch (command[0]) {
-            case "connect": {
+            case "join": {
                 // expect one additional parameter, being the address
                 if (command.length != 2) {
-                    return "Usage: connect <address>";
+                    return "Usage: join <address>";
                 }
 
                 try {
                     var addr = Networking.parseAddressFromString(command[1]);
 
-                    this.client = new Client(addr.getHostName(), addr.getPort());
+                    this.client = new Client(addr.getAddress().getHostAddress(), addr.getPort());
 
                     // If we successfully connect to the other peer, this means that we can add them
                     // as a known peer for other peers to know about them
@@ -292,8 +292,7 @@ public class Commander {
                     // because of a timeout, or just failed for some unknown I/O reason.
                     if (status.equals(DownloaderStatus.FINISHED) ||
                             status.equals(DownloaderStatus.FAILED) ||
-                            status.equals(DownloaderStatus.FAILED_TIMEOUT))
-                    {
+                            status.equals(DownloaderStatus.FAILED_TIMEOUT)) {
                         completedDownloads.add(download);
                     }
                 }

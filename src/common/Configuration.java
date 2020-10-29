@@ -54,13 +54,14 @@ public class Configuration {
 
             var saveRequired = false;
 
-            // set the default download and upload folders as the users home directory
-            if (properties.getProperty("download").equals("")) {
+            // If download folder doesn't exist or is set to nothing, then set it as the users home directory
+            if (properties.getProperty("download") == null || properties.getProperty("download").equals("")) {
                 properties.setProperty("download", System.getProperty("user.home"));
                 saveRequired = true;
             }
 
-            if (properties.getProperty("upload").equals("")) {
+            // If upload folder doesn't exist or is set to nothing, then set it as the users home directory
+            if (properties.getProperty("upload") == null || properties.getProperty("upload").equals("")) {
                 properties.setProperty("upload", System.getProperty("user.home"));
                 saveRequired = true;
             }
