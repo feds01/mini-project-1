@@ -240,7 +240,7 @@ public class Commander {
                     var clientDownloads = this.downloadMap.get(this.client.getAddress());
 
                     // Check whether we have any ongoing downloads on the current client connection
-                    if (clientDownloads.size() > 0) {
+                    if (clientDownloads != null && clientDownloads.size() > 0) {
                         boolean isBeingDownloaded = false;
 
 
@@ -279,6 +279,7 @@ public class Commander {
                         downloader.start();
 
                         // append the downloader thread to our downloader list
+                        this.downloadMap.putIfAbsent(this.client.getAddress(), new ArrayList<>());
                         this.downloadMap.get(this.client.getAddress()).add(downloader);
                     } catch (InvalidPathException e) { // This is thrown when the download folder doesn't exist
                         return "Download folder doesn't exist. Aborting download!";
