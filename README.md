@@ -1,7 +1,6 @@
 Mini Project 1 Practical Assessment
 ------------------------------------------------------
-Implement a Simple File Share Application. This application involves
-a client, and a server part.
+Implement a Simple File Share Application. This application involves a client, and a server part.
 
 ### Running the tests (without stacscheck)
 - Ensure that the libraries in the lib folder has executable permissions on linux or unix-like
@@ -22,5 +21,14 @@ a client, and a server part.
   
 ### Example run
 ```shell script
+$ java -cp "./lib/jackson-annotations-2.11.1.jar:./lib/jackson-core-2.11.1.jar:./lib/jackson-databind-2.11.1.jar:./FileShareMain.jar" FileShareMain
+File server listening on port 42543...
+Running with download directory: /cs/home/af268
+Running with upload directory: /cs/home/af268
+> peers
+(RUNNING) Peer at 138.251.22.77:42543 on lyrane
+(RUNNING) Peer at 138.251.22.77:41977 on lyrane
+>
+
 ```
 

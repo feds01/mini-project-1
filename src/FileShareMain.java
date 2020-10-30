@@ -67,6 +67,9 @@ public class FileShareMain {
             System.out.println("Running with download directory: " + config.get("download"));
             System.out.println("Running with upload directory: " + config.get("upload"));
 
+            // notify user that they can use 'help' command
+            System.out.println("Use 'help' to print application commandline manual");
+
             // boot up PeerReceiver to listen for broadcasts of similar applications...
             var peerReceiver = new PeerReceiver();
 

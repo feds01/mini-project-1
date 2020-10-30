@@ -1,0 +1,19 @@
+FileShareMain v1.0 usage:
+
+list [path]                  - List the contents of the other peer. By providing the path
+                               argument, the path will be listed instead of the root
+                               directory.
+
+get <path>                   - Get a file resource from a peer by the path of the file.
+
+join <address>               - Join another peer by an IPv4 address. The address must
+                               also specify a port number.
+
+set [download|upload] <path> - Set the upload or download resource folders for the
+                               application
+
+status                       - Print the status of any on going downloads.
+
+peers                        - Print the current records of known peers for the application.
+
+help                         - Print the program command line usage help manual.

@@ -10,16 +10,20 @@ import common.protocol.Command;
 import server.PeerRecord;
 import server.Server;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetAddress;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -46,6 +50,10 @@ public class Commander {
      */
     private Client client;
 
+    /**
+     * Loaded help text from internal resource.
+     */
+    private String helpText;
 
     /**
      * Instance of the configuration object which is used to get application settings.
@@ -67,6 +75,19 @@ public class Commander {
      * Commander instantiation method.
      */
     private Commander() {
+        try {
+            var resourceUri = this.getClass().getClassLoader().getResource("resources/help.txt");
+
+            // load in the help text that is stored in a resource file called 'help.txt'
+            if (resourceUri != null) {
+                this.helpText = new String(Files.readAllBytes(Paths.get(resourceUri.toURI())));
+            } else {
+                throw new FileNotFoundException("Couldn't load crucial resources.");
+            }
+        } catch (IOException | URISyntaxException e) {
+            System.out.println("Couldn't load crucial resources.");
+            this.helpText = "Missing resource.";
+        }
     }
 
     /**
@@ -337,9 +358,8 @@ public class Commander {
                 break;
             }
             case "help": {
-                // print out help stuff
-                System.out.println("help text");
-                break;
+                // print out help string.
+                return this.helpText;
             }
             default: {
                 return "Command not recognised.";
