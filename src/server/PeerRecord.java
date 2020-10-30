@@ -1,6 +1,7 @@
 package server;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import common.Networking;
 
 import java.util.Objects;
 
@@ -47,6 +48,13 @@ public class PeerRecord {
      *
      */
     public PeerRecord(String address, String name, boolean isAlive) {
+        // If the address is invalid, an IllegalArgumentException is thrown
+        Networking.parseAddressFromString(address);
+
+        if (name.equals("")) {
+            throw new IllegalArgumentException("Peer host name cannot be null");
+        }
+
         this.address = address;
         this.name = name;
         this.isAlive = isAlive;
@@ -119,11 +127,11 @@ public class PeerRecord {
     public String toString() {
         var sb = new StringBuilder();
 
-        sb.append(String.format("(%s) Peer at %s on %s ", isAlive ? "RUNNING" : "DEAD",  address, name));
+        sb.append(String.format("(%s) Peer at %s on %s", isAlive ? "RUNNING" : "DEAD",  address, name));
 
         // Add a label of 'self' to denote that this is our own connection.
         if (this.isSelf) {
-            sb.append("(self)");
+            sb.append(" (self)");
         }
 
         return sb.toString();

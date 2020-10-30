@@ -53,7 +53,7 @@ public class Networking {
      *                                  IPv4 address.
      */
     public static InetSocketAddress parseAddressFromString(String address) {
-        var pattern = Pattern.compile("(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}):(\\d+)");
+        var pattern = Pattern.compile("(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}):(\\d{1,5})");
         var matcher = pattern.matcher(address);
 
         if (matcher.matches()) {

@@ -17,3 +17,5 @@ status                       - Print the status of any on going downloads.
 peers                        - Print the current records of known peers for the application.
 
 help                         - Print the program command line usage help manual.
+
+quit                         - Exit the application.
