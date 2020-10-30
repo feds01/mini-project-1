@@ -264,6 +264,11 @@ public class Commander {
                     try {
                         var downloadPath = Downloader.getPathForResource(response.get("fileName").asText());
 
+                        // Ensure that the download folder exists.
+                        if (!downloadPath.getParent().toFile().exists()) {
+                            return "Download folder doesn't exist. Aborting download!";
+                        }
+
                         // This is of course a very edge case scenario, but nevertheless a potential issue...
                         if (downloadPath.getParent().toFile().getFreeSpace() < size) {
                             return "Not enough space on download folder drive to download file.";

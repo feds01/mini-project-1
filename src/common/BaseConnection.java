@@ -16,7 +16,7 @@ public abstract class BaseConnection {
     /**
      * Number that represents the timeout (in milliseconds) of the connection.
      */
-    public final static int CONNECTION_TIMEOUT = 30000;
+    public final static int CONNECTION_TIMEOUT = 10000;
 
     /**
      * Instance of the configuration object which is used to get application settings.

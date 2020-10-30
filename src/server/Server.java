@@ -218,6 +218,8 @@ public class Server implements Runnable {
             } else {
                 System.out.println("File server shutting down...");
             }
+        } catch (IllegalArgumentException e) {
+            System.out.println("Port argument out of range.");
         } finally {
             this.cleanup();
         }
