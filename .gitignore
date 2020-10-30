@@ -1,4 +1,6 @@
 .idea/
+app.iml
+code.iml
 
 # Build directories
 target/
@@ -6,8 +8,6 @@ build/
 
 # Ignore resources config.properties
 src/resources/config.properties
-
-code.iml
 
 # Any built resources
 FileShareMain.jar
