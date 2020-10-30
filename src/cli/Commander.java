@@ -14,11 +14,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetAddress;
-import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -76,15 +73,15 @@ public class Commander {
      */
     private Commander() {
         try {
-            var resourceUri = this.getClass().getClassLoader().getResource("resources/help.txt");
+            var resource = this.getClass().getClassLoader().getResourceAsStream("resources/help.txt");
 
             // load in the help text that is stored in a resource file called 'help.txt'
-            if (resourceUri != null) {
-                this.helpText = new String(Files.readAllBytes(Paths.get(resourceUri.toURI())));
+            if (resource != null) {
+                this.helpText = new String(resource.readAllBytes());
             } else {
                 throw new FileNotFoundException("Couldn't load crucial resources.");
             }
-        } catch (IOException | URISyntaxException e) {
+        } catch (IOException e) {
             System.out.println("Couldn't load crucial resources.");
             this.helpText = "Missing resource.";
         }
