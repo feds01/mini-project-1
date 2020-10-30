@@ -13,7 +13,7 @@ a client, and a server part.
 - Compile the program (Windows):  
     ```javac -cp "./lib/*;./src/" -d build src/FileShareMain.java```
 - Create The JAR file (Include the build folder and any resources including config.resources)
-    ```jar cvmf manifest.mf FileShareMain.jar -C build . -C src resources```
+    ```jar cmf manifest.mf FileShareMain.jar -C build . -C src resources```
 - Run the Application with the Jackson JARs (Windows)
     ```java -cp ".\lib\jackson-annotations-2.11.1.jar;.\lib\jackson-core-2.11.1.jar;.\lib\jackson-databind-2.11.1.jar;.\FileShareMain.jar" FileShareMain```
 - Run the Application with the Jackson JARs (Linux)
