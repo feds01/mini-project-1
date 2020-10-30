@@ -1,7 +1,7 @@
 import cli.Commander;
 import client.Downloader;
-import common.Networking;
 import common.Configuration;
+import common.Networking;
 import server.PeerReceiver;
 import server.Server;
 
@@ -13,31 +13,41 @@ import java.util.concurrent.TimeUnit;
  * listener component are started.
  *
  * @author 200008575
- * */
+ */
 public class FileShareMain {
 
     /**
      * Prefix that is used to display a new line in the command line interface.
-     * */
+     */
     static String CONSOLE_PREFIX = "> ";
 
     /**
      * The entry point method of the program
-     * */
+     */
     public static void main(String[] args) {
         var config = Configuration.getInstance();
 
         var port = Networking.getFreePort();
 
+        var useBroadcast = true;
+
         try (
                 var scanner = new Scanner(System.in)
         ) {
-            if (args.length == 1) {
+            if (args.length > 1) {
                 port = Integer.parseInt(args[0]);
             }
 
+            // Check for the -noBroadcast argument
+            if (args.length > 2) {
+                // @Improve: Add a proper arguments parse rather than doing crude
+                // string comparisons. This approach also forces
+                useBroadcast = !args[1].equals("-noBroadcast");
+            }
+
+
             // boot the server that listens for incoming connections...
-            var server = new Server(port);
+            var server = new Server(port, useBroadcast);
 
             server.start();
 
@@ -58,8 +68,11 @@ public class FileShareMain {
             System.out.println("Running with upload directory: " + config.get("upload"));
 
             // boot up PeerReceiver to listen for broadcasts of similar applications...
-            var peerReceiver =  new PeerReceiver();
-            peerReceiver.start();
+            var peerReceiver = new PeerReceiver();
+
+            if (useBroadcast) {
+                peerReceiver.start();
+            }
 
             // boot up the commander for cli...
             var commander = Commander.getInstance();
@@ -100,6 +113,7 @@ public class FileShareMain {
             commander.getDownloadMap().values().forEach(item -> item.forEach(Downloader::stop));
         } catch (NumberFormatException e) {
             System.out.println("Port argument must be an integer.");
+            System.out.println("Usage: FileShareMain <port> [-noBroadcast]");
         } catch (Exception e) {
             e.printStackTrace();
         }

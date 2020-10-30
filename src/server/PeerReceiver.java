@@ -101,7 +101,7 @@ public class PeerReceiver extends Thread {
                 // objects that can be added into the list of known peers that the commander
                 // object holds a reference of...
                 try {
-                    List<Peer> response = mapper.readValue(packet.getData(), new TypeReference<>() {
+                    List<PeerRecord> response = mapper.readValue(packet.getData(), new TypeReference<>() {
                     });
 
                     response.forEach(commander::addKnownPeer);

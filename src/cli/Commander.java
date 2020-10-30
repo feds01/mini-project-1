@@ -7,7 +7,7 @@ import client.DownloaderStatus;
 import common.Configuration;
 import common.Networking;
 import common.protocol.Command;
-import server.Peer;
+import server.PeerRecord;
 import server.Server;
 
 import java.io.IOException;
@@ -38,7 +38,7 @@ public class Commander {
      * A Hash map of known peers on the network that is mapped by the address of
      * the peer to the peer object.
      */
-    Map<String, Peer> knownPeers = new ConcurrentHashMap<>();
+    Map<String, PeerRecord> knownPeers = new ConcurrentHashMap<>();
 
     /**
      * Variable that holds the client object which commander uses to send
@@ -92,7 +92,7 @@ public class Commander {
         var localAddress = addr.getHostAddress() + ":" + server.getPort();
 
         // This is reference to our own instance
-        var self = new Peer(localAddress, addr.getHostName(), true);
+        var self = new PeerRecord(localAddress, addr.getHostName(), true);
         this.knownPeers.put(localAddress, self);
 
         self.setSelf(true);
@@ -150,13 +150,13 @@ public class Commander {
 
                     // If we successfully connect to the other peer, this means that we can add them
                     // as a known peer for other peers to know about them
-                    this.addKnownPeer(new Peer(command[1], this.client.getHost(), true));
+                    this.addKnownPeer(new PeerRecord(command[1], this.client.getHost(), true));
 
                     // Get ourselves from the peer list and send the item to the newly established connection
                     // so that they know about this peer being present on the network
                     var selfPeer = this.knownPeers.values()
                             .stream()
-                            .filter(Peer::isSelf)
+                            .filter(PeerRecord::isSelf)
                             .findFirst()
                             .get()
                             .getAddress();
@@ -352,12 +352,20 @@ public class Commander {
     }
 
     /**
-     * Method that is used to add a new Peer to the knownPeer list
+     * Method that is used to add a new Peer to the knownPeer list. Put the
+     * peer connection, or put if the Peer object mismatches with the current
+     * record. This is because other peers may notify us that some of their
+     * knownPeer connections have dropped or timed out.
      *
      * @param peer - The peer that will be added to the knownPeer list
      */
-    public void addKnownPeer(Peer peer) {
-        this.knownPeers.putIfAbsent(peer.getAddress(), peer);
+    public void addKnownPeer(PeerRecord peer) {
+        var currentPeer = this.knownPeers.get(peer.getAddress());
+
+        // Only put the peer record if there is no present record or if the PeerRecord differ.
+        if (currentPeer == null || !currentPeer.equals(peer)) {
+            this.knownPeers.put(peer.getAddress(), peer);
+        }
     }
 
 
@@ -376,7 +384,7 @@ public class Commander {
      *
      * @return A map that maps an IP address to a Peer object
      */
-    public Map<String, Peer> getKnownPeers() {
+    public Map<String, PeerRecord> getKnownPeers() {
         return this.knownPeers;
     }
 }

@@ -148,7 +148,7 @@ public class ConnectionHandler extends BaseConnection implements Runnable {
                         var commander = Commander.getInstance();
 
                         var addr = Networking.parseAddressFromString(request[1]);
-                        var peer = new Peer(request[1], addr.getHostName(), true);
+                        var peer = new PeerRecord(request[1], addr.getHostName(), true);
 
                         commander.addKnownPeer(peer);
 

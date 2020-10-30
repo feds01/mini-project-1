@@ -34,6 +34,12 @@ public class Server implements Runnable {
     private final int port;
 
     /**
+     * Boolean flag to signify if the server should attempt to broadcast information
+     * about themselves
+     * */
+    private final boolean useBroadcast;
+
+    /**
      * The multicast group that will be used for broadcasting requests for peers.
      */
     private InetAddress broadcastGroup;
@@ -129,15 +135,18 @@ public class Server implements Runnable {
     /**
      * Server class constructor that instantiates the broadcast socket and group.
      */
-    public Server(int port) {
+    public Server(int port, boolean useBroadcast) {
         this.port = port;
+        this.useBroadcast = useBroadcast;
 
-        // Initiate our broadcast group address for finding peers on the local network.
-        try {
-            this.broadcastSocket = new DatagramSocket();
-            this.broadcastGroup = InetAddress.getByName(Configuration.MULTICAST_GROUP);
-        } catch (IOException e) {
-            System.out.println("Failed to start Peer broadcasting service.");
+        if (useBroadcast) {
+            // Initiate our broadcast group address for finding peers on the local network.
+            try {
+                this.broadcastSocket = new DatagramSocket();
+                this.broadcastGroup = InetAddress.getByName(Configuration.MULTICAST_GROUP);
+            } catch (IOException e) {
+                System.out.println("Failed to start Peer broadcasting service.");
+            }
         }
     }
 
@@ -191,10 +200,11 @@ public class Server implements Runnable {
         // instance that said connection is dead. By using a ScheduledExecutorService
         // task we can run a 'Runnable' instance every 60 seconds to send the
         // 'peers' command.
-        var handle = scheduler.scheduleWithFixedDelay(broadcastTask, 2, 5, TimeUnit.SECONDS);
+        if (this.useBroadcast) {
+            var handle = scheduler.scheduleWithFixedDelay(broadcastTask, 2, 5, TimeUnit.SECONDS);
 
-        scheduler.schedule((Runnable) () -> handle.cancel(true), 60, TimeUnit.SECONDS);
-
+            scheduler.schedule((Runnable) () -> handle.cancel(true), 60, TimeUnit.SECONDS);
+        }
 
         try {
             this.running.set(true);
@@ -263,8 +273,9 @@ public class Server implements Runnable {
             }
 
             // close the broadcast socket...
-            this.broadcastSocket.close();
-
+            if (this.broadcastSocket != null) {
+                this.broadcastSocket.close();
+            }
         } catch (IOException e) {
             System.out.println("File server couldn't shutdown gracefully.");
             e.printStackTrace();
