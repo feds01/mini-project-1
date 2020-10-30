@@ -96,12 +96,12 @@ public class Server implements Runnable {
      */
     List<ConnectionHandler> connections = new ArrayList<>();
 
+
     /**
      * This is a Runnable task that is executed by the scheduler every 60 seconds to
-     * check that all our 'active' connections aren't stale, and to broadcast a message
-     * to the local network, looking for peers.
+     * clean up any broken or timed out connections.
      */
-    final Runnable broadcastTask = () -> {
+    final Runnable connectionCleanupTask = () -> {
         List<ConnectionHandler> deadConnections = new ArrayList<>();
 
         // iterate over the active connections and check if they are all still alive.
@@ -114,7 +114,13 @@ public class Server implements Runnable {
         }
 
         this.connections.removeAll(deadConnections);
+    };
 
+    /**
+     * This is a Runnable task that is executed by the scheduler every 30 seconds to
+     * broadcast a message to the local network, looking for peers.
+     */
+    final Runnable broadcastTask = () -> {
         // Only attempt to broadcast if the Peer service started
         if (!broadcastSocket.isClosed()) {
             try {
@@ -194,16 +200,20 @@ public class Server implements Runnable {
     public void run() {
         Thread.currentThread().setName("ServerThread");
 
-        // Add a scheduled task to query all of our known peers for their
-        // peer information. This is also used to check if some connections
-        // are dead instead of the ConnectionHandler notifying the server
-        // instance that said connection is dead. By using a ScheduledExecutorService
-        // task we can run a 'Runnable' instance every 60 seconds to send the
-        // 'peers' command.
-        if (this.useBroadcast) {
-            var handle = scheduler.scheduleWithFixedDelay(broadcastTask, 2, 5, TimeUnit.SECONDS);
+        // This is used to check if some connections are dead instead of the ConnectionHandler
+        // notifying the server instance that said connection is dead.
+        var cleanupHandle = scheduler.scheduleWithFixedDelay(connectionCleanupTask, 2, 5, TimeUnit.SECONDS);
 
-            scheduler.schedule((Runnable) () -> handle.cancel(true), 60, TimeUnit.SECONDS);
+        scheduler.schedule((Runnable) () -> cleanupHandle.cancel(true), 60, TimeUnit.SECONDS);
+
+        // Add a scheduled task to query all of our known peers for their peer
+        // information. By using a ScheduledExecutorService task we can run a
+        // 'Runnable' instance every 30 seconds to send information about our known
+        // peers.
+        if (this.useBroadcast) {
+            var broadcastHandle = scheduler.scheduleWithFixedDelay(broadcastTask, 2, 5, TimeUnit.SECONDS);
+
+            scheduler.schedule((Runnable) () -> broadcastHandle.cancel(true), 30, TimeUnit.SECONDS);
         }
 
         try {
