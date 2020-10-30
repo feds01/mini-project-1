@@ -42,7 +42,7 @@ public class Configuration {
      * Configuration instantiation method.
      * */
     private Configuration() {
-        try (var input = this.getClass().getClassLoader().getResourceAsStream("config.properties")) {
+        try (var input = this.getClass().getClassLoader().getResourceAsStream("resources/config.properties")) {
             this.properties = new Properties();
 
             if (input == null) {
@@ -68,7 +68,11 @@ public class Configuration {
 
             // If we need to overwrite the default settings of the application, then do so
             if (saveRequired) {
-                var output =Files.newBufferedWriter(Paths.get(this.getClass().getClassLoader().getResource("config.properties").toURI()));
+                var output = Files.newBufferedWriter(Paths.get(
+                        this.getClass()
+                                .getClassLoader()
+                                .getResource("resources/config.properties")
+                                .toURI()));
 
                 properties.store(output, null);
             }
@@ -124,7 +128,11 @@ public class Configuration {
 
         // save the properties to config file.
         try (
-            var output = Files.newBufferedWriter(Paths.get(this.getClass().getClassLoader().getResource("config.properties").toURI()))
+            var output = Files.newBufferedWriter(Paths.get(
+                    this.getClass()
+                            .getClassLoader()
+                            .getResource("resources/config.properties")
+                            .toURI()))
         ) {
 
             // ensure that the passed value which is a path exists...
