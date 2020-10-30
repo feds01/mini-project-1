@@ -6,11 +6,11 @@ import client.Downloader;
 import client.DownloaderStatus;
 import common.Configuration;
 import common.Networking;
+import common.ResourceLoader;
 import common.protocol.Command;
 import server.PeerRecord;
 import server.Server;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetAddress;
@@ -73,17 +73,15 @@ public class Commander {
      */
     private Commander() {
         try {
-            var resource = this.getClass().getClassLoader().getResourceAsStream("resources/help.txt");
+            var resource = ResourceLoader.load("resources/help.txt");
 
             // load in the help text that is stored in a resource file called 'help.txt'
-            if (resource != null) {
-                this.helpText = new String(resource.readAllBytes());
-            } else {
-                throw new FileNotFoundException("Couldn't load crucial resources.");
-            }
+            this.helpText = new String(resource.readAllBytes());
         } catch (IOException e) {
+
+            // If we can't load the help text, the program cannot function properly.
             System.out.println("Couldn't load crucial resources.");
-            this.helpText = "Missing resource.";
+            System.exit(-1);
         }
     }
 

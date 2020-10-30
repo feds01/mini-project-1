@@ -47,12 +47,8 @@ public class Configuration {
      * Configuration instantiation method.
      */
     private Configuration() {
-        try (var defaultProperties = this.getClass().getClassLoader().getResourceAsStream("resources/config.properties")) {
+        try (var defaultProperties = ResourceLoader.load("resources/config.properties")) {
             this.properties = new Properties();
-
-            if (defaultProperties == null) {
-                throw new RuntimeException("Failed to load properties.");
-            }
 
             var file = new File(this.location);
 
